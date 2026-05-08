@@ -1,8 +1,8 @@
 .tabbar {
   display: flex;
   align-items: center;
-  background: #0d0d0d;
-  border-bottom: 1px solid #1a1a1a;
+  background: var(--app-bg);
+  border-bottom: 1px solid var(--border-color);
   height: 40px;
   flex-shrink: 0;
   user-select: none;
@@ -52,7 +52,7 @@
   padding: 0 9px;
   height: 100%;
   cursor: pointer;
-  color: #666;
+  color: var(--tab-color);
   font-size: 12px;
   font-family: inherit;
   white-space: nowrap;
@@ -67,7 +67,7 @@
 }
 
 .tabbar__tab:hover {
-  color: #999;
+  color: var(--tab-color-hover);
   background: rgba(255,255,255,0.04);
 }
 
@@ -117,7 +117,7 @@
   border: none;
   border-radius: 3px;
   cursor: pointer;
-  color: #444;
+  color: var(--tab-color);
   padding: 0;
   flex-shrink: 0;
   opacity: 0;
@@ -142,17 +142,17 @@
   width: 26px;
   height: 26px;
   background: none;
-  border: 1px solid #222;
+  border: 1px solid var(--tab-add-border);
   border-radius: 5px;
   cursor: pointer;
-  color: #3a3a3a;
+  color: var(--tab-color);
   flex-shrink: 0;
   transition: color 0.1s, border-color 0.1s;
 }
 
 .tabbar__add:hover {
-  color: #888;
-  border-color: #3a3a3a;
+  color: var(--tab-color-hover);
+  border-color: var(--tab-color);
 }
 
 /* ── window controls ── */
@@ -172,7 +172,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: #444;
+  color: var(--tab-color);
   transition: background 0.12s, color 0.12s;
   padding: 0;
 }

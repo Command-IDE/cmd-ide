@@ -27,8 +27,14 @@ type Terminal struct {
 }
 
 
-func NewTerminal(ctx context.Context, id string) *Terminal {
-	t := &Terminal{id: id, cwd: getDefaultDir(), ctx: ctx}
+func NewTerminal(ctx context.Context, id string, initialCwd string) *Terminal {
+	dir := getDefaultDir()
+	if initialCwd != "" {
+		if info, err := os.Stat(initialCwd); err == nil && info.IsDir() {
+			dir = initialCwd
+		}
+	}
+	t := &Terminal{id: id, cwd: dir, ctx: ctx}
 	go t.write(t.prompt())
 	return t
 }
@@ -132,28 +138,51 @@ func (t *Terminal) ExecuteCommand(line string) {
 		return
 	}
 
-	switch parts[0] {
+	raw := parts[0]
+	isSlash := strings.HasPrefix(raw, "/")
+	cmd := strings.TrimPrefix(raw, "/")
+
+	// Standard built-ins — work with or without a leading slash.
+	switch cmd {
 	case "cd":
 		t.builtinCD(parts[1:])
+		return
 	case "clear", "cls":
 		t.write("\x1b[2J\x1b[H")
 		t.write(t.prompt())
+		return
 	case "pwd":
 		t.write("\r\n" + filepath.ToSlash(t.cwd))
 		t.write(t.prompt())
+		return
 	case "ls", "ll", "la":
 		t.builtinLS(parts)
+		return
 	case "open":
 		t.builtinOpen(parts[1:])
-	case "config":
-		if len(parts) > 1 && parts[1] == "--reload" {
-			t.builtinConfigReload()
-		} else {
-			t.builtinConfigOpen()
-		}
-	default:
-		t.execExternal(parts)
+		return
 	}
+
+	// App-specific commands — require the "/" prefix.
+	if isSlash {
+		switch cmd {
+		case "themes":
+			t.builtinThemes()
+		case "config":
+			if len(parts) > 1 && parts[1] == "--reload" {
+				t.builtinConfigReload()
+			} else {
+				t.builtinConfigOpen()
+			}
+		case "help":
+			t.builtinHelp()
+		default:
+			t.execExternal(parts)
+		}
+		return
+	}
+
+	t.execExternal(parts)
 }
 
 // Interrupt kills any currently-running external command (user pressed Ctrl+C).
@@ -264,6 +293,50 @@ func (t *Terminal) builtinLS(parts []string) {
 		}
 	}
 
+	t.write(sb.String())
+	t.write(t.prompt())
+}
+
+// availableThemes lists every theme key defined in frontend/src/themes.ts.
+var availableThemes = []string{"dark", "blackout", "dim-green", "dim-blue"}
+
+func (t *Terminal) builtinThemes() {
+	var sb strings.Builder
+	sb.WriteString("\r\n\x1b[38;5;75mAvailable themes\x1b[0m\r\n")
+	for _, name := range availableThemes {
+		sb.WriteString("  \x1b[38;5;246m•\x1b[0m " + name + "\r\n")
+	}
+	sb.WriteString("\r\n\x1b[38;5;246mTo apply: run \x1b[38;5;75m/config\x1b[38;5;246m, set \"theme\": \"<name>\", save, then run \x1b[38;5;75m/config --reload\x1b[0m")
+	t.write(sb.String())
+	t.write(t.prompt())
+}
+
+func (t *Terminal) builtinHelp() {
+	type entry struct{ name, desc string }
+
+	appCmds := []entry{
+		{"/config",           "open config.json in the editor"},
+		{"/config --reload",  "reload config from disk"},
+		{"/themes",           "list available themes"},
+		{"/help",             "show this help"},
+	}
+	stdCmds := []entry{
+		{"cd <dir>",          "change the working directory"},
+		{"ls [dir] [-a]",     "list directory contents"},
+		{"pwd",               "print working directory"},
+		{"clear / cls",       "clear the terminal screen"},
+		{"open <file>",       "open a file in the editor"},
+	}
+
+	var sb strings.Builder
+	sb.WriteString("\r\n\x1b[38;5;75mApp commands\x1b[0m \x1b[38;5;246m(require /)\x1b[0m\r\n\r\n")
+	for _, e := range appCmds {
+		sb.WriteString(fmt.Sprintf("  \x1b[38;5;214m%-22s\x1b[0m \x1b[38;5;246m%s\x1b[0m\r\n", e.name, e.desc))
+	}
+	sb.WriteString("\r\n\x1b[38;5;75mBuilt-in terminal commands\x1b[0m\r\n\r\n")
+	for _, e := range stdCmds {
+		sb.WriteString(fmt.Sprintf("  \x1b[38;5;114m%-22s\x1b[0m \x1b[38;5;246m%s\x1b[0m\r\n", e.name, e.desc))
+	}
 	t.write(sb.String())
 	t.write(t.prompt())
 }

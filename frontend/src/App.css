@@ -13,6 +13,9 @@
   --info-bar-color: #555555;
   --info-bar-hover-bg: #1a1a1a;
   --info-bar-hover-color: #888888;
+  --tab-color: #555555;
+  --tab-color-hover: #999999;
+  --tab-add-border: #222222;
 }
 
 .app {
@@ -118,6 +121,10 @@
 }
 
 .completion-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   padding: 4px 12px;
   cursor: pointer;
   color: var(--info-bar-hover-color, #ccc);
@@ -138,6 +145,16 @@
 .completion-item.applied {
   background: #264f78;
   color: #fff;
+}
+
+.completion-item__name {
+  flex-shrink: 0;
+}
+
+.completion-item__desc {
+  color: var(--info-bar-color, #555);
+  font-size: 11px;
+  flex-shrink: 0;
 }
 
 /* Editor pane */

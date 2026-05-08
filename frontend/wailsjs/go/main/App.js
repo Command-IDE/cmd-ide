@@ -6,8 +6,8 @@ export function CloseTerminal(arg1) {
   return window['go']['main']['App']['CloseTerminal'](arg1);
 }
 
-export function CreateTerminal(arg1) {
-  return window['go']['main']['App']['CreateTerminal'](arg1);
+export function CreateTerminal(arg1, arg2) {
+  return window['go']['main']['App']['CreateTerminal'](arg1, arg2);
 }
 
 export function CtrlClickPath(arg1, arg2) {
@@ -42,8 +42,16 @@ export function InterruptCommand(arg1) {
   return window['go']['main']['App']['InterruptCommand'](arg1);
 }
 
+export function LoadSession() {
+  return window['go']['main']['App']['LoadSession']();
+}
+
 export function ReadFile(arg1) {
   return window['go']['main']['App']['ReadFile'](arg1);
+}
+
+export function SaveSession(arg1) {
+  return window['go']['main']['App']['SaveSession'](arg1);
 }
 
 export function SelectDirectory() {

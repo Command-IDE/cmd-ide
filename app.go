@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,6 +10,46 @@ import (
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
+
+// SessionTab is a minimal description of one open tab, persisted for soft-close.
+type SessionTab struct {
+	Type     string `json:"type"`               // "terminal" or "editor"
+	FilePath string `json:"file_path,omitempty"` // editor tabs only
+	Language string `json:"language,omitempty"`  // editor tabs only
+	Cwd      string `json:"cwd,omitempty"`        // terminal tabs only
+}
+
+func sessionFilePath() string {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		dir, _ = os.UserHomeDir()
+	}
+	return filepath.Join(dir, "terminal-IDE", "session.json")
+}
+
+// SaveSession persists the current tab list to disk (soft-close).
+func (a *App) SaveSession(tabs []SessionTab) {
+	data, err := json.MarshalIndent(tabs, "", "  ")
+	if err != nil {
+		return
+	}
+	// Ensure the directory exists (it should already, from config).
+	_ = os.MkdirAll(filepath.Dir(sessionFilePath()), 0755)
+	os.WriteFile(sessionFilePath(), data, 0644) //nolint:errcheck
+}
+
+// LoadSession reads the persisted tab list. Returns nil when none exists.
+func (a *App) LoadSession() []SessionTab {
+	data, err := os.ReadFile(sessionFilePath())
+	if err != nil {
+		return nil
+	}
+	var tabs []SessionTab
+	if err := json.Unmarshal(data, &tabs); err != nil {
+		return nil
+	}
+	return tabs
+}
 
 type App struct {
 	ctx       context.Context
@@ -48,8 +89,9 @@ func (a *App) shutdown(_ context.Context) {
 }
 
 // CreateTerminal starts a new shell session for the given tab ID.
-func (a *App) CreateTerminal(id string) error {
-	t := NewTerminal(a.ctx, id)
+// initialCwd, when non-empty, overrides the default starting directory.
+func (a *App) CreateTerminal(id string, initialCwd string) error {
+	t := NewTerminal(a.ctx, id, initialCwd)
 	a.mu.Lock()
 	a.terminals[id] = t
 	a.mu.Unlock()

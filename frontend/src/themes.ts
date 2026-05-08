@@ -7,6 +7,9 @@ export interface AppTheme {
   infoBarColor: string
   infoBarHoverBg: string
   infoBarHoverColor: string
+  tabColor: string
+  tabColorHover: string
+  tabAddBorder: string
   monacoThemeId: string
   monacoThemeDef?: {
     base: 'vs' | 'vs-dark' | 'hc-black'
@@ -25,6 +28,9 @@ export const THEMES: Record<string, AppTheme> = {
     infoBarColor: '#555555',
     infoBarHoverBg: '#1a1a1a',
     infoBarHoverColor: '#888888',
+    tabColor: '#555555',
+    tabColorHover: '#999999',
+    tabAddBorder: '#222222',
     monacoThemeId: 'vs-dark',
     xtermTheme: {
       background: '#0d0d0d',
@@ -47,6 +53,9 @@ export const THEMES: Record<string, AppTheme> = {
     infoBarColor: '#666666',
     infoBarHoverBg: '#1a1a1a',
     infoBarHoverColor: '#aaaaaa',
+    tabColor: '#666666',
+    tabColorHover: '#aaaaaa',
+    tabAddBorder: '#2a2a2a',
     monacoThemeId: 'blackout',
     monacoThemeDef: {
       base: 'vs-dark',
@@ -104,6 +113,9 @@ export const THEMES: Record<string, AppTheme> = {
     infoBarColor: '#2a4a2a',
     infoBarHoverBg: '#111a11',
     infoBarHoverColor: '#4a7a4a',
+    tabColor: '#2a4a2a',
+    tabColorHover: '#4a8a4a',
+    tabAddBorder: '#1a3a1a',
     monacoThemeId: 'dim-green',
     monacoThemeDef: {
       base: 'vs-dark',
@@ -161,6 +173,9 @@ export const THEMES: Record<string, AppTheme> = {
     infoBarColor: '#2a3a5a',
     infoBarHoverBg: '#111520',
     infoBarHoverColor: '#4a6a9a',
+    tabColor: '#2a3a5a',
+    tabColorHover: '#4a6a9a',
+    tabAddBorder: '#1a2a4a',
     monacoThemeId: 'dim-blue',
     monacoThemeDef: {
       base: 'vs-dark',

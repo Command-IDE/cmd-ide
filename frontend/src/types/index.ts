@@ -9,6 +9,8 @@ export interface Tab {
   filePath?: string
   content?: string
   language?: string
+  // terminal-only
+  initialCwd?: string // cwd to restore on mount (soft-close)
 }
 
 export interface OpenFilePayload {
@@ -30,4 +32,5 @@ export interface AppConfig {
   theme: string
   show_timestamps: boolean
   git_recognition: GitRecognitionConfig
+  soft_close: boolean
 }

@@ -4,7 +4,7 @@ import {main} from '../models';
 
 export function CloseTerminal(arg1:string):Promise<void>;
 
-export function CreateTerminal(arg1:string):Promise<void>;
+export function CreateTerminal(arg1:string,arg2:string):Promise<void>;
 
 export function CtrlClickPath(arg1:string,arg2:string):Promise<void>;
 
@@ -22,7 +22,11 @@ export function GetTerminalCwd(arg1:string):Promise<string>;
 
 export function InterruptCommand(arg1:string):Promise<void>;
 
+export function LoadSession():Promise<Array<main.SessionTab>>;
+
 export function ReadFile(arg1:string):Promise<string>;
+
+export function SaveSession(arg1:Array<main.SessionTab>):Promise<void>;
 
 export function SelectDirectory():Promise<string>;
 

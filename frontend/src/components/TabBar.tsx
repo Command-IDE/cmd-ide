@@ -3,7 +3,6 @@ import { Tab } from '../types'
 import {
   WindowMinimise,
   WindowToggleMaximise,
-  Quit,
 } from '../../wailsjs/runtime/runtime'
 import './TabBar.css'
 
@@ -13,6 +12,7 @@ interface Props {
   onSelect: (id: string) => void
   onClose: (id: string) => void
   onNewTerminal: () => void
+  onQuit: () => void
 }
 
 const TERMINAL_COLORS = [
@@ -77,7 +77,7 @@ const NoDrag: React.FC<{ children: React.ReactNode; className?: string; style?: 
   </div>
 )
 
-export default function TabBar({ tabs, activeId, onSelect, onClose, onNewTerminal }: Props) {
+export default function TabBar({ tabs, activeId, onSelect, onClose, onNewTerminal, onQuit }: Props) {
   const groups = buildGroups(tabs)
 
   return (
@@ -168,7 +168,7 @@ export default function TabBar({ tabs, activeId, onSelect, onClose, onNewTermina
             <rect x="0.75" y="0.75" width="8.5" height="8.5" rx="1.5" stroke="currentColor" strokeWidth="1.5" fill="none"/>
           </svg>
         </button>
-        <button className="wc-btn wc-close" onClick={Quit} aria-label="Close">
+        <button className="wc-btn wc-close" onClick={onQuit} aria-label="Close">
           <svg width="10" height="10" viewBox="0 0 10 10">
             <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
           </svg>

@@ -21,6 +21,7 @@ type Config struct {
 	Theme            string               `json:"theme"`
 	ShowTimestamps   bool                 `json:"show_timestamps"`
 	GitRecognition   GitRecognitionConfig `json:"git_recognition"`
+	SoftClose        bool                 `json:"soft_close"`
 }
 
 var (
@@ -52,6 +53,7 @@ func ensureConfig() error {
 		Theme:            "dark",
 		ShowTimestamps:   false,
 		GitRecognition:   GitRecognitionConfig{ShowGitBranch: false},
+		SoftClose:        false,
 	}
 	data, _ := json.MarshalIndent(defaults, "", "  ")
 	return os.WriteFile(path, data, 0644)

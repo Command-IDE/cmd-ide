@@ -4,7 +4,8 @@ import Terminal from './components/Terminal'
 import Editor from './components/Editor'
 import { Tab, OpenFilePayload, AppConfig } from './types'
 import { EventsOn, EventsOff } from '../wailsjs/runtime/runtime'
-import { GetAppConfig } from '../wailsjs/go/main/App'
+import { GetAppConfig, SaveSession, LoadSession, ReadFile, GetTerminalCwd } from '../wailsjs/go/main/App'
+import { Quit } from '../wailsjs/runtime/runtime'
 import { getTheme } from './themes'
 import './App.css'
 
@@ -21,6 +22,7 @@ type TabAction =
   | { type: 'open-file'; payload: OpenFilePayload }
   | { type: 'close'; id: string }
   | { type: 'select'; id: string }
+  | { type: 'restore-session'; tabs: Tab[] }
 
 function tabReducer(state: TabState, action: TabAction): TabState {
   switch (action.type) {
@@ -78,6 +80,11 @@ function tabReducer(state: TabState, action: TabAction): TabState {
     case 'select':
       return { ...state, activeId: action.id }
 
+    case 'restore-session': {
+      if (action.tabs.length === 0) return state
+      return { tabs: action.tabs, activeId: action.tabs[action.tabs.length - 1].id }
+    }
+
     default:
       return state
   }
@@ -91,6 +98,7 @@ const defaultConfig: AppConfig = {
   theme: 'dark',
   show_timestamps: false,
   git_recognition: { show_git_branch: false },
+  soft_close: false,
 }
 
 const initialTab = makeTerminalTab()
@@ -113,6 +121,67 @@ export default function App() {
     return () => EventsOff('app:config')
   }, [])
 
+  // Restore session on startup when soft_close is enabled
+  useEffect(() => {
+    if (!appConfig.soft_close) return
+    LoadSession().then(async (sessionTabs) => {
+      if (!sessionTabs || sessionTabs.length === 0) return
+      const restoredTabs: Tab[] = []
+      let lastTerminalId: string | undefined
+
+      for (const st of sessionTabs) {
+        if (st.type === 'terminal') {
+          const tab = makeTerminalTab()
+          if (st.cwd) tab.initialCwd = st.cwd
+          lastTerminalId = tab.id
+          restoredTabs.push(tab)
+        } else if (st.type === 'editor' && st.file_path) {
+          try {
+            const content = await ReadFile(st.file_path)
+            const fileName = st.file_path.replace(/\\/g, '/').split('/').pop() ?? st.file_path
+            const tab: Tab = {
+              id: nextId(),
+              type: 'editor',
+              title: fileName,
+              filePath: st.file_path,
+              content,
+              language: st.language || 'plaintext',
+              parentId: lastTerminalId,
+            }
+            restoredTabs.push(tab)
+          } catch {
+            // file no longer exists — skip it
+          }
+        }
+      }
+
+      if (restoredTabs.length > 0) {
+        dispatch({ type: 'restore-session', tabs: restoredTabs })
+      }
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appConfig.soft_close])
+
+  // Handle quit: save session when soft_close is on, then exit.
+  // Gathers each terminal's live cwd asynchronously before saving.
+  const handleQuit = async () => {
+    if (appConfig.soft_close) {
+      const sessionTabs = await Promise.all(
+        tabs.map(async t => {
+          if (t.type === 'terminal') {
+            const cwd = await GetTerminalCwd(t.id).catch(() => '')
+            return { type: t.type, file_path: '', language: '', cwd }
+          }
+          return { type: t.type, file_path: t.filePath ?? '', language: t.language ?? '', cwd: '' }
+        })
+      )
+      await SaveSession(sessionTabs).catch(() => {})
+      Quit()
+    } else {
+      Quit()
+    }
+  }
+
   // Apply theme CSS variables whenever theme changes
   useEffect(() => {
     const t = getTheme(appConfig.theme)
@@ -123,6 +192,9 @@ export default function App() {
     root.style.setProperty('--info-bar-color', t.infoBarColor)
     root.style.setProperty('--info-bar-hover-bg', t.infoBarHoverBg)
     root.style.setProperty('--info-bar-hover-color', t.infoBarHoverColor)
+    root.style.setProperty('--tab-color', t.tabColor)
+    root.style.setProperty('--tab-color-hover', t.tabColorHover)
+    root.style.setProperty('--tab-add-border', t.tabAddBorder)
   }, [appConfig.theme])
 
   // Wire up open-file event from Go
@@ -145,6 +217,7 @@ export default function App() {
         onSelect={id => dispatch({ type: 'select', id })}
         onClose={id => dispatch({ type: 'close', id })}
         onNewTerminal={() => dispatch({ type: 'add-terminal' })}
+        onQuit={handleQuit}
       />
       <div className="app__content">
         {tabs.map(tab => (
@@ -158,6 +231,7 @@ export default function App() {
                 tabId={tab.id}
                 active={tab.id === activeId}
                 xtermTheme={theme.xtermTheme}
+                initialCwd={tab.initialCwd}
               />
             ) : (
               <Editor

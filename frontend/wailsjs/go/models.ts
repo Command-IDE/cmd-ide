@@ -20,6 +20,7 @@ export namespace main {
 	    theme: string;
 	    show_timestamps: boolean;
 	    git_recognition: GitRecognitionConfig;
+	    soft_close: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Config(source);
@@ -34,6 +35,7 @@ export namespace main {
 	        this.theme = source["theme"];
 	        this.show_timestamps = source["show_timestamps"];
 	        this.git_recognition = this.convertValues(source["git_recognition"], GitRecognitionConfig);
+	        this.soft_close = source["soft_close"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -53,6 +55,25 @@ export namespace main {
 		    }
 		    return a;
 		}
+	}
+	
+	export class SessionTab {
+	    type: string;
+	    file_path?: string;
+	    language?: string;
+	    cwd?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SessionTab(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.type = source["type"];
+	        this.file_path = source["file_path"];
+	        this.language = source["language"];
+	        this.cwd = source["cwd"];
+	    }
 	}
 
 }

@@ -23,11 +23,13 @@ interface Props {
   tabId: string
   active: boolean
   xtermTheme: ITheme
+  initialCwd?: string
 }
 
 // Completion dropdown state (React state for rendering)
 interface MenuState {
   matches: string[]
+  descriptions?: string[]  // optional right-side labels (slash commands)
   selectedIdx: number
   applied: boolean         // true after first Tab press
   appliedLen: number       // chars currently in terminal for this token
@@ -37,11 +39,20 @@ interface MenuState {
   left: number
 }
 
+// App-specific slash commands shown in the autocomplete dropdown.
+// Standard terminal commands (cd, ls, clear, etc.) do not need a slash.
+const SLASH_COMMANDS: { cmd: string; desc: string }[] = [
+  { cmd: '/config',          desc: 'open config.json' },
+  { cmd: '/config --reload', desc: 'reload config' },
+  { cmd: '/help',            desc: 'show help' },
+  { cmd: '/themes',          desc: 'list available themes' },
+]
+
 function abbreviatePath(path: string): string {
   return path.replace(/\\/g, '/')
 }
 
-export default function Terminal({ tabId, active, xtermTheme }: Props) {
+export default function Terminal({ tabId, active, xtermTheme, initialCwd }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<XTerm | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
@@ -182,7 +193,7 @@ export default function Terminal({ tabId, active, xtermTheme }: Props) {
     }
     container.addEventListener('wheel', handleWheel, { passive: false })
 
-    CreateTerminal(tabId).catch(() => {})
+    CreateTerminal(tabId, initialCwd ?? '').catch(() => {})
 
     const outEvent = `terminal:output:${tabId}`
     EventsOn(outEvent, (data: string) => { term.write(data) })
@@ -235,7 +246,39 @@ export default function Terminal({ tabId, active, xtermTheme }: Props) {
 
     // ── completion menu ───────────────────────────────────────────────────────
 
+    // Slash-command autocomplete: shown when the line starts with '/' and
+    // contains no space yet (user is still typing the command name).
+    // Returns true when it handled the update (even if it cleared the menu).
+    const updateSlashMenu = (): boolean => {
+      const line = lineRef.current
+      if (!line.startsWith('/') || line.includes(' ')) return false
+
+      const filtered = SLASH_COMMANDS.filter(c => c.cmd.startsWith(line))
+      if (filtered.length === 0) { setMenu(null); return true }
+
+      const { h } = cellDims()
+      const rect = container.getBoundingClientRect()
+      const cursorRow = term.buffer.active.cursorY
+      const top  = rect.top + 6 + (cursorRow + 1) * h
+      const left = rect.left + 8
+
+      setMenu({
+        matches:      filtered.map(c => c.cmd),
+        descriptions: filtered.map(c => c.desc),
+        selectedIdx: 0,
+        applied: false,
+        appliedLen: line.length,
+        originalPartial: line,
+        prefix: '',
+        top,
+        left,
+      })
+      return true
+    }
+
     const updateMenu = () => {
+      if (updateSlashMenu()) return
+
       const parsed = parseToken()
       if (!parsed) { setMenu(null); return }
       const { dir, partial, prefix } = parsed
@@ -471,7 +514,10 @@ export default function Terminal({ tabId, active, xtermTheme }: Props) {
                 applyMatchRef.current?.(m)
               }}
             >
-              {m}
+              <span className="completion-item__name">{m}</span>
+              {menu.descriptions?.[i] && (
+                <span className="completion-item__desc">{menu.descriptions[i]}</span>
+              )}
             </div>
           ))}
         </div>,
