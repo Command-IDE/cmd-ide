@@ -25,7 +25,19 @@ func (a *App) startup(ctx context.Context) {
 	initConfig()
 }
 
-func (a *App) domReady(_ context.Context)  {}
+func (a *App) domReady(ctx context.Context) {
+	// Inject a capture-phase Tab interceptor before React registers any listeners.
+	// WebView2 handles Tab for native focus cycling at a level that can fire before
+	// JavaScript events; calling preventDefault here prevents that native behaviour
+	// so xterm's own handler (attachCustomKeyEventHandler) gets a clean shot at it.
+	wailsruntime.WindowExecJS(ctx, `
+		(function() {
+			window.addEventListener('keydown', function(e) {
+				if (e.key === 'Tab') { e.preventDefault(); }
+			}, true);
+		})();
+	`)
+}
 func (a *App) shutdown(_ context.Context) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -134,6 +146,47 @@ func (a *App) SelectDirectory() string {
 // GetAppConfig returns the current configuration.
 func (a *App) GetAppConfig() Config {
 	return getGlobalConfig()
+}
+
+// CtrlClickPath handles Ctrl+Click on a token in the terminal output.
+// If the resolved path is a directory it cds the terminal into it and shows a
+// new prompt; if it is a file it opens it in the editor. Silently no-ops when
+// the path cannot be resolved.
+func (a *App) CtrlClickPath(id string, path string) {
+	a.mu.Lock()
+	t, ok := a.terminals[id]
+	a.mu.Unlock()
+	if !ok {
+		return
+	}
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(t.cwd, path)
+	}
+	path = filepath.Clean(path)
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return
+	}
+
+	if info.IsDir() {
+		// cd into the directory and re-display the prompt
+		t.SetCwd(path)
+		return
+	}
+
+	// Open the file in the editor
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	lang := detectLanguage(path)
+	wailsruntime.EventsEmit(t.ctx, "app:open-file", map[string]string{
+		"path":       path,
+		"content":    string(content),
+		"language":   lang,
+		"terminalId": id,
+	})
 }
 
 // GetCompletions returns filesystem entries in `dir` (relative to the terminal's cwd)

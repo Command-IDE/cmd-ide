@@ -1,6 +1,7 @@
 import React, { useRef, useCallback, useState, useMemo } from 'react'
 import MonacoEditor, { OnMount, BeforeMount } from '@monaco-editor/react'
 import { WriteFile } from '../../wailsjs/go/main/App'
+import { THEMES } from '../themes'
 import type * as Monaco from 'monaco-editor'
 
 interface Props {
@@ -10,14 +11,23 @@ interface Props {
   language: string
   active: boolean
   indentGuides: boolean
+  monacoTheme: string
+  minimap: boolean
 }
 
-export default function Editor({ tabId, filePath, content, language, active, indentGuides }: Props) {
+export default function Editor({ tabId, filePath, content, language, active, indentGuides, monacoTheme, minimap }: Props) {
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null)
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [fontSize, setFontSize] = useState(13)
 
   const beforeMount: BeforeMount = (monaco) => {
+    // Register all custom themes so they're available immediately
+    Object.entries(THEMES).forEach(([key, t]) => {
+      if (t.monacoThemeDef) {
+        monaco.editor.defineTheme(key, t.monacoThemeDef as Monaco.editor.IStandaloneThemeData)
+      }
+    })
+
     monaco.languages.registerCompletionItemProvider('plaintext', {
       provideCompletionItems: (model, position) => {
         const word = model.getWordUntilPosition(position)
@@ -40,9 +50,7 @@ export default function Editor({ tabId, filePath, content, language, active, ind
     })
   }
 
-  // Memoised so the options reference only changes when fontSize changes.
-  // This prevents @monaco-editor/react from calling updateOptions on every re-render
-  // (e.g. when the `active` prop flips), which would reset the zoom level.
+  // Memoised so the options reference only changes when these deps change.
   const editorOptions = useMemo<Monaco.editor.IStandaloneEditorConstructionOptions>(() => ({
     fontSize,
     fontFamily: "'Cascadia Code', 'Fira Code', 'JetBrains Mono', Menlo, Monaco, 'Courier New', monospace",
@@ -53,7 +61,7 @@ export default function Editor({ tabId, filePath, content, language, active, ind
     folding: true,
     foldingHighlight: false,
     showFoldingControls: 'mouseover',
-    minimap: { enabled: false },
+    minimap: { enabled: minimap },
     scrollbar: { verticalScrollbarSize: 6, horizontalScrollbarSize: 6 },
     overviewRulerLanes: 0,
     hideCursorInOverviewRuler: true,
@@ -80,7 +88,7 @@ export default function Editor({ tabId, filePath, content, language, active, ind
       bracketPairsHorizontal: indentGuides,
       highlightActiveIndentation: indentGuides,
     },
-  }), [fontSize, indentGuides])
+  }), [fontSize, indentGuides, minimap])
 
   const onMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor
@@ -121,7 +129,7 @@ export default function Editor({ tabId, filePath, content, language, active, ind
         height="calc(100% - 24px)"
         language={language}
         defaultValue={content}
-        theme="vs-dark"
+        theme={monacoTheme}
         beforeMount={beforeMount}
         onMount={onMount}
         options={editorOptions}

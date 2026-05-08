@@ -18,8 +18,16 @@ export interface OpenFilePayload {
   terminalId?: string
 }
 
+export interface GitRecognitionConfig {
+  show_git_branch: boolean
+}
+
 export interface AppConfig {
   default_directory: string
   indent_guides: boolean
   order_directory: boolean
+  minimap: boolean
+  theme: string
+  show_timestamps: boolean
+  git_recognition: GitRecognitionConfig
 }

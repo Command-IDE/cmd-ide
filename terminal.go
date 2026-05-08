@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -10,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -60,15 +62,51 @@ func (t *Terminal) write(s string) {
 	wailsruntime.EventsEmit(t.ctx, "terminal:output:"+t.id, s)
 }
 
-// prompt builds the minimal styled prompt showing the current directory.
+// getGitBranch returns the current branch name when cwd is inside a git repo,
+// or an empty string when it is not (or when git is not available).
+func (t *Terminal) getGitBranch() string {
+	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	cmd.Dir = t.cwd
+	noWindow(cmd)
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// prompt builds the styled prompt, optionally prefixing a timestamp and/or
+// appending the current git branch, based on the active config.
 func (t *Terminal) prompt() string {
+	cfg := getGlobalConfig()
 	home, _ := os.UserHomeDir()
 	dir := t.cwd
 	if rel, err := filepath.Rel(home, dir); err == nil && !strings.HasPrefix(rel, "..") {
 		dir = "~/" + rel
 	}
-	dir = filepath.ToSlash(dir) // always forward slashes in prompt
-	return "\r\n\x1b[38;5;75m" + dir + "\x1b[0m \x1b[38;5;246m❯\x1b[0m "
+	dir = filepath.ToSlash(dir)
+
+	var sb strings.Builder
+	sb.WriteString("\r\n")
+
+	// Optional timestamp — (hh:mm:ss)
+	if cfg.ShowTimestamps {
+		now := time.Now()
+		sb.WriteString(fmt.Sprintf("\x1b[38;5;246m(%02d:%02d:%02d)\x1b[0m ", now.Hour(), now.Minute(), now.Second()))
+	}
+
+	// Current directory
+	sb.WriteString("\x1b[38;5;75m" + dir + "\x1b[0m")
+
+	// Optional git branch — (branch-name) in orange
+	if cfg.GitRecognition.ShowGitBranch {
+		if branch := t.getGitBranch(); branch != "" {
+			sb.WriteString(" \x1b[38;5;214m(" + branch + ")\x1b[0m")
+		}
+	}
+
+	sb.WriteString(" \x1b[38;5;246m❯\x1b[0m ")
+	return sb.String()
 }
 
 // ExecuteCommand is called from the frontend when the user presses Enter.

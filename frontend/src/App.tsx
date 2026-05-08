@@ -5,6 +5,7 @@ import Editor from './components/Editor'
 import { Tab, OpenFilePayload, AppConfig } from './types'
 import { EventsOn, EventsOff } from '../wailsjs/runtime/runtime'
 import { GetAppConfig } from '../wailsjs/go/main/App'
+import { getTheme } from './themes'
 import './App.css'
 
 let tabCounter = 0
@@ -86,6 +87,10 @@ const defaultConfig: AppConfig = {
   default_directory: '',
   indent_guides: false,
   order_directory: false,
+  minimap: false,
+  theme: 'dark',
+  show_timestamps: false,
+  git_recognition: { show_git_branch: false },
 }
 
 const initialTab = makeTerminalTab()
@@ -108,6 +113,18 @@ export default function App() {
     return () => EventsOff('app:config')
   }, [])
 
+  // Apply theme CSS variables whenever theme changes
+  useEffect(() => {
+    const t = getTheme(appConfig.theme)
+    const root = document.documentElement
+    root.style.setProperty('--app-bg', t.appBg)
+    root.style.setProperty('--border-color', t.borderColor)
+    root.style.setProperty('--info-bar-bg', t.infoBarBg)
+    root.style.setProperty('--info-bar-color', t.infoBarColor)
+    root.style.setProperty('--info-bar-hover-bg', t.infoBarHoverBg)
+    root.style.setProperty('--info-bar-hover-color', t.infoBarHoverColor)
+  }, [appConfig.theme])
+
   // Wire up open-file event from Go
   useEffect(() => {
     EventsOn('app:open-file', (...args: any[]) => {
@@ -117,6 +134,8 @@ export default function App() {
     })
     return () => EventsOff('app:open-file')
   }, [])
+
+  const theme = getTheme(appConfig.theme)
 
   return (
     <div className="app">
@@ -135,7 +154,11 @@ export default function App() {
             style={{ display: tab.id === activeId ? 'flex' : 'none' }}
           >
             {tab.type === 'terminal' ? (
-              <Terminal tabId={tab.id} active={tab.id === activeId} />
+              <Terminal
+                tabId={tab.id}
+                active={tab.id === activeId}
+                xtermTheme={theme.xtermTheme}
+              />
             ) : (
               <Editor
                 tabId={tab.id}
@@ -144,6 +167,8 @@ export default function App() {
                 language={tab.language ?? 'plaintext'}
                 active={tab.id === activeId}
                 indentGuides={appConfig.indent_guides}
+                monacoTheme={theme.monacoThemeId}
+                minimap={appConfig.minimap}
               />
             )}
           </div>

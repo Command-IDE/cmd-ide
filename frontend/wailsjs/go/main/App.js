@@ -10,6 +10,10 @@ export function CreateTerminal(arg1) {
   return window['go']['main']['App']['CreateTerminal'](arg1);
 }
 
+export function CtrlClickPath(arg1, arg2) {
+  return window['go']['main']['App']['CtrlClickPath'](arg1, arg2);
+}
+
 export function ExecuteCommand(arg1, arg2) {
   return window['go']['main']['App']['ExecuteCommand'](arg1, arg2);
 }

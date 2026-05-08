@@ -6,6 +6,8 @@ export function CloseTerminal(arg1:string):Promise<void>;
 
 export function CreateTerminal(arg1:string):Promise<void>;
 
+export function CtrlClickPath(arg1:string,arg2:string):Promise<void>;
+
 export function ExecuteCommand(arg1:string,arg2:string):Promise<void>;
 
 export function GetAppConfig():Promise<main.Config>;

@@ -14,7 +14,9 @@
       "Bash(go get *)",
       "Bash(npm install *)",
       "Bash(npm run *)",
-      "Bash(wails build *)"
+      "Bash(wails build *)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "mcp__Claude_in_Chrome__computer"
     ]
   }
 }

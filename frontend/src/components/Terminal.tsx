@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
+import ReactDOM from 'react-dom'
 import { Terminal as XTerm } from '@xterm/xterm'
+import type { ITheme } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
@@ -13,35 +15,53 @@ import {
   SetTerminalCwd,
   SelectDirectory,
   GetCompletions,
+  CtrlClickPath,
 } from '../../wailsjs/go/main/App'
 import '@xterm/xterm/css/xterm.css'
 
 interface Props {
   tabId: string
   active: boolean
+  xtermTheme: ITheme
+}
+
+// Completion dropdown state (React state for rendering)
+interface MenuState {
+  matches: string[]
+  selectedIdx: number
+  applied: boolean         // true after first Tab press
+  appliedLen: number       // chars currently in terminal for this token
+  originalPartial: string  // what user typed before any Tab
+  prefix: string           // line up to (not including) the completion token
+  top: number              // fixed px position
+  left: number
 }
 
 function abbreviatePath(path: string): string {
   return path.replace(/\\/g, '/')
 }
 
-// Completion state stored in a ref so it's accessible inside xterm callbacks
-// without triggering re-renders.
-interface CompletionState {
-  matches: string[]  // all matching filenames (with "/" suffix for dirs)
-  index: number      // which one is currently displayed
-  prefix: string     // everything in the line before the partial (e.g. "open src/")
-  applied: string    // the completion string currently written to the terminal
-}
-
-export default function Terminal({ tabId, active }: Props) {
+export default function Terminal({ tabId, active, xtermTheme }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<XTerm | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
   const activeRef = useRef(active)
   useEffect(() => { activeRef.current = active }, [active])
 
+  const xtermThemeRef = useRef(xtermTheme)
+  useEffect(() => { xtermThemeRef.current = xtermTheme }, [xtermTheme])
+  useEffect(() => {
+    if (termRef.current) termRef.current.options.theme = xtermTheme
+  }, [xtermTheme])
+
   const [cwd, setCwd] = useState('')
+  const [fontSize, setFontSize] = useState(13)
+  const [menu, setMenu] = useState<MenuState | null>(null)
+  const menuRef = useRef<MenuState | null>(null)
+  useEffect(() => { menuRef.current = menu }, [menu])
+
+  // Refs so JSX handlers can call functions defined inside the main useEffect
+  const applyMatchRef = useRef<((match: string) => void) | null>(null)
 
   useEffect(() => {
     GetTerminalCwd(tabId).then(p => { if (p) setCwd(p) }).catch(() => {})
@@ -58,29 +78,12 @@ export default function Terminal({ tabId, active }: Props) {
     if (path) SetTerminalCwd(tabId, path)
   }
 
-  // Per-terminal font size — survives tab switches because the xterm instance
-  // stays mounted (display:none). State is kept in sync so if the terminal
-  // ever reconstructs it starts at the last-used size.
-  const [fontSize, setFontSize] = useState(13)
-
   useEffect(() => {
     if (!containerRef.current) return
-
     const container = containerRef.current
 
     const term = new XTerm({
-      theme: {
-        background: '#0d0d0d',
-        foreground: '#cccccc',
-        cursor: '#cccccc',
-        cursorAccent: '#0d0d0d',
-        selectionBackground: '#264f7855',
-        black: '#1a1a1a', red: '#cd3131', green: '#0dbc79', yellow: '#e5e510',
-        blue: '#2472c8', magenta: '#bc3fbc', cyan: '#11a8cd', white: '#e5e5e5',
-        brightBlack: '#666666', brightRed: '#f14c4c', brightGreen: '#23d18b',
-        brightYellow: '#f5f543', brightBlue: '#3b8eea', brightMagenta: '#d670d6',
-        brightCyan: '#29b8db', brightWhite: '#ffffff',
-      },
+      theme: xtermThemeRef.current,
       fontFamily: "'Cascadia Code', 'Fira Code', 'JetBrains Mono', Menlo, Monaco, 'Courier New', monospace",
       fontSize,
       lineHeight: 1.45,
@@ -99,7 +102,75 @@ export default function Terminal({ tabId, active }: Props) {
     termRef.current = term
     fitRef.current = fitAddon
 
-    // Ctrl+Wheel — zoom this terminal's font size independently
+    // ── Ctrl+Click: open files / cd into directories ─────────────────────────
+    // Direct mouse-event approach — more reliable than registerLinkProvider in
+    // the WebView2 host.  When Ctrl is held:
+    //   • cursor turns into a pointer over the terminal canvas
+    //   • clicking resolves the word under the cursor as a path relative to cwd
+    //   • directories  → cd (SetCwd + new prompt)
+    //   • files        → open in editor tab
+
+    const isPathChar = (c: string) => /[a-zA-Z0-9_./\\-]/.test(c)
+
+    // Set the cursor on the xterm canvas/row elements so the user sees a pointer
+    // while Ctrl is held, indicating that clicking is available.
+    const setCtrlCursor = (pointer: boolean) => {
+      container.querySelectorAll<HTMLElement>('canvas, .xterm-rows').forEach(el => {
+        el.style.cursor = pointer ? 'pointer' : ''
+      })
+    }
+
+    const handleCtrlMouseMove = (e: MouseEvent) => setCtrlCursor(e.ctrlKey)
+    const handleCtrlKeyDown   = (e: KeyboardEvent) => { if (e.key === 'Control') setCtrlCursor(true)  }
+    const handleCtrlKeyUp     = (e: KeyboardEvent) => { if (e.key === 'Control') setCtrlCursor(false) }
+
+    const handleCtrlClick = (e: MouseEvent) => {
+      if (!e.ctrlKey) return
+
+      // Use the xterm screen element as the coordinate reference
+      const screen = container.querySelector('.xterm-screen') as HTMLElement | null
+      if (!screen) return
+
+      // Cell dimensions via xterm's internal render service
+      const core  = (term as any)._core
+      const cellW = core?._renderService?.dimensions?.css?.cell?.width  as number | undefined
+      const cellH = core?._renderService?.dimensions?.css?.cell?.height as number | undefined
+      if (!cellW || !cellH) return
+
+      // Convert click pixel position → terminal column + viewport row
+      const rect = screen.getBoundingClientRect()
+      const col  = Math.floor((e.clientX - rect.left) / cellW)
+      const row  = Math.floor((e.clientY - rect.top)  / cellH)
+      if (col < 0 || row < 0) return
+
+      // viewportY is the first buffer line visible in the viewport (scrollback offset)
+      const bufferRow = term.buffer.active.viewportY + row
+      const bufLine   = term.buffer.active.getLine(bufferRow)
+      if (!bufLine) return
+
+      const lineText = bufLine.translateToString(true)
+      if (!lineText.trim()) return
+
+      // Expand left and right from the clicked column to extract the full token
+      const clampedCol = Math.max(0, Math.min(col, lineText.length - 1))
+      if (!isPathChar(lineText[clampedCol])) return
+
+      let start = clampedCol
+      while (start > 0 && isPathChar(lineText[start - 1])) start--
+      let end = clampedCol + 1
+      while (end < lineText.length && isPathChar(lineText[end])) end++
+
+      const token = lineText.slice(start, end).replace(/[/\\]$/, '') // strip trailing slash
+      if (!token) return
+
+      CtrlClickPath(tabId, token).catch(() => {})
+    }
+
+    container.addEventListener('mousemove', handleCtrlMouseMove)
+    container.addEventListener('mousedown', handleCtrlClick)
+    window.addEventListener('keydown', handleCtrlKeyDown)
+    window.addEventListener('keyup',   handleCtrlKeyUp)
+
     const handleWheel = (e: WheelEvent) => {
       if (!e.ctrlKey) return
       e.preventDefault()
@@ -117,12 +188,11 @@ export default function Terminal({ tabId, active }: Props) {
     EventsOn(outEvent, (data: string) => { term.write(data) })
 
     const lineRef = { current: '' }
-    const completionRef: { current: CompletionState | null } = { current: null }
 
-    // ── helpers ──────────────────────────────────────────────────────────────
+    // ── helpers ───────────────────────────────────────────────────────────────
 
     const processPaste = (text: string) => {
-      completionRef.current = null
+      setMenu(null)
       const segments = text.split(/\r?\n/)
       segments.forEach((seg, i) => {
         if (seg) { lineRef.current += seg; term.write(seg) }
@@ -135,70 +205,127 @@ export default function Terminal({ tabId, active }: Props) {
       })
     }
 
-    // Erase `count` characters from the terminal display and lineRef
     const eraseChars = (count: number) => {
       if (count <= 0) return
-      term.write('\b \b'.repeat(count))
+      term.write(`\x1b[${count}D\x1b[K`)
       lineRef.current = lineRef.current.slice(0, -count)
     }
 
-    // ── Tab completion ────────────────────────────────────────────────────────
-
-    const handleTab = () => {
-      const comp = completionRef.current
-
-      if (comp) {
-        // Cycle to next match
-        const nextIdx = (comp.index + 1) % comp.matches.length
-        const nextMatch = comp.matches[nextIdx]
-        eraseChars(comp.applied.length)
-        term.write(nextMatch)
-        lineRef.current = comp.prefix + nextMatch
-        comp.index = nextIdx
-        comp.applied = nextMatch
-        return
-      }
-
-      // Start a new completion from the current line
+    // Returns the dir/partial/prefix for the token the cursor is on, or null if
+    // we're still typing the command name (no space yet).
+    const parseToken = () => {
       const line = lineRef.current
       const lastSpace = line.lastIndexOf(' ')
-      if (lastSpace < 0) return // still typing the command name — skip
-
+      if (lastSpace < 0) return null
       const token = line.slice(lastSpace + 1)
       const lastSlash = Math.max(token.lastIndexOf('/'), token.lastIndexOf('\\'))
       const dir = lastSlash >= 0 ? token.slice(0, lastSlash + 1) : ''
       const partial = lastSlash >= 0 ? token.slice(lastSlash + 1) : token
       const prefix = line.slice(0, line.length - partial.length)
+      return { dir, partial, prefix }
+    }
+
+    // Get xterm cell dimensions (internal API, with fallback).
+    const cellDims = () => {
+      const core = (term as any)._core
+      const h = core?._renderService?.dimensions?.css?.cell?.height ?? (fontSize * 1.45)
+      const w = core?._renderService?.dimensions?.css?.cell?.width ?? (fontSize * 0.62)
+      return { h, w }
+    }
+
+    // ── completion menu ───────────────────────────────────────────────────────
+
+    const updateMenu = () => {
+      const parsed = parseToken()
+      if (!parsed) { setMenu(null); return }
+      const { dir, partial, prefix } = parsed
 
       GetCompletions(tabId, dir, partial)
         .then((matches: string[]) => {
-          if (!matches || matches.length === 0) return
+          if (!matches || matches.length === 0) { setMenu(null); return }
 
-          // If there's only one match and it's an exact match, do nothing
-          if (matches.length === 1 && matches[0].replace(/\/$/, '') === partial) return
+          const { h, w } = cellDims()
+          const rect = container.getBoundingClientRect()
+          const cursorRow = term.buffer.active.cursorY
+          const cursorCol = term.buffer.active.cursorX
+          const partialStartCol = cursorCol - partial.length
 
-          const first = matches[0]
-          eraseChars(partial.length)
-          term.write(first)
-          lineRef.current = prefix + first
+          const top = rect.top + 6 + (cursorRow + 1) * h
+          const left = Math.max(rect.left + 8, rect.left + 8 + partialStartCol * w)
 
-          completionRef.current = { matches, index: 0, prefix, applied: first }
+          setMenu({
+            matches,
+            selectedIdx: 0,
+            applied: false,
+            appliedLen: partial.length,
+            originalPartial: partial,
+            prefix,
+            top,
+            left,
+          })
         })
-        .catch(() => {})
+        .catch(() => setMenu(null))
     }
 
-    // ── Tab — capture at window level before WebView2 swallows it ────────────
-    // WebView2 intercepts Tab for native focus cycling before DOM events reach
-    // xterm's onData. Capturing here ensures we always see it first.
-
-    const onWindowKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return
-      if (!activeRef.current) return
-      e.preventDefault()
-      e.stopImmediatePropagation()
-      handleTab()
+    // Apply a specific match from the menu (used by click handler).
+    applyMatchRef.current = (match: string) => {
+      const m = menuRef.current
+      if (!m) return
+      eraseChars(m.appliedLen)
+      term.write(match)
+      lineRef.current = m.prefix + match
+      setMenu(null)
+      term.focus()
     }
-    window.addEventListener('keydown', onWindowKeyDown, { capture: true })
+
+    // Tab: apply selected match, then advance selection for next Tab.
+    const handleTab = () => {
+      const m = menuRef.current
+      if (!m || m.matches.length === 0) return
+
+      if (!m.applied) {
+        // First Tab: apply the first (selected) match
+        const match = m.matches[0]
+        eraseChars(m.appliedLen)
+        term.write(match)
+        lineRef.current = m.prefix + match
+        setMenu({ ...m, applied: true, appliedLen: match.length, selectedIdx: 0 })
+      } else {
+        // Subsequent Tab: cycle to next match
+        const nextIdx = (m.selectedIdx + 1) % m.matches.length
+        const match = m.matches[nextIdx]
+        eraseChars(m.appliedLen)
+        term.write(match)
+        lineRef.current = m.prefix + match
+        setMenu({ ...m, appliedLen: match.length, selectedIdx: nextIdx })
+      }
+    }
+
+    // ── keyboard ──────────────────────────────────────────────────────────────
+
+    const onContainerKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Tab') {
+        e.preventDefault()
+        e.stopPropagation()
+        handleTab()
+        return
+      }
+      if (e.key === 'Escape') {
+        const m = menuRef.current
+        if (m) {
+          e.preventDefault()
+          if (m.applied) {
+            // Restore the original typed partial
+            eraseChars(m.appliedLen)
+            term.write(m.originalPartial)
+            lineRef.current = m.prefix + m.originalPartial
+          }
+          setMenu(null)
+        }
+        return
+      }
+    }
+    container.addEventListener('keydown', onContainerKeyDown, { capture: true })
 
     // ── paste ─────────────────────────────────────────────────────────────────
 
@@ -215,7 +342,7 @@ export default function Terminal({ tabId, active }: Props) {
     term.onData((data: string) => {
       // Enter
       if (data === '\r' || data === '\n') {
-        completionRef.current = null
+        setMenu(null)
         const line = lineRef.current
         lineRef.current = ''
         term.write('\r\n')
@@ -225,17 +352,19 @@ export default function Terminal({ tabId, active }: Props) {
 
       // Backspace
       if (data === '\x7f' || data === '\b') {
-        completionRef.current = null
         if (lineRef.current.length > 0) {
           lineRef.current = lineRef.current.slice(0, -1)
           term.write('\b \b')
+          updateMenu()
+        } else {
+          setMenu(null)
         }
         return
       }
 
       // Ctrl+C
       if (data === '\x03') {
-        completionRef.current = null
+        setMenu(null)
         term.write('^C\r\n')
         lineRef.current = ''
         InterruptCommand(tabId)
@@ -244,7 +373,7 @@ export default function Terminal({ tabId, active }: Props) {
 
       // Ctrl+L
       if (data === '\x0c') {
-        completionRef.current = null
+        setMenu(null)
         term.write('\x1b[2J\x1b[H')
         lineRef.current = ''
         ExecuteCommand(tabId, 'clear')
@@ -253,7 +382,7 @@ export default function Terminal({ tabId, active }: Props) {
 
       // Ctrl+U
       if (data === '\x15') {
-        completionRef.current = null
+        setMenu(null)
         if (lineRef.current.length > 0) {
           term.write('\x1b[' + lineRef.current.length + 'D' +
             ' '.repeat(lineRef.current.length) +
@@ -263,28 +392,25 @@ export default function Terminal({ tabId, active }: Props) {
         return
       }
 
-      // Tab (\x09) — handled by the window keydown capture listener above.
-      // Ignore here to avoid double-firing in environments where onData still
-      // receives it after capture (e.g. non-WebView2 dev mode).
+      // Tab — handled by container keydown listener
       if (data === '\x09') return
 
-      // Ctrl+V — WebView2 sends raw \x16
+      // Ctrl+V
       if (data === '\x16') {
         GetClipboardText().then(text => { if (text) processPaste(text) }).catch(() => {})
         return
       }
 
-      // Other control characters (arrows, fn keys, etc.)
+      // Other control characters
       if (data.charCodeAt(0) < 32) return
 
-      // Any printable input resets completion
-      completionRef.current = null
-
+      // Printable: write, update menu in real time
       if (data.length > 1) {
         processPaste(data)
       } else {
         lineRef.current += data
         term.write(data)
+        updateMenu()
       }
     })
 
@@ -294,13 +420,18 @@ export default function Terminal({ tabId, active }: Props) {
     return () => {
       ro.disconnect()
       container.removeEventListener('wheel', handleWheel)
-      window.removeEventListener('keydown', onWindowKeyDown, { capture: true })
+      container.removeEventListener('keydown', onContainerKeyDown, { capture: true })
+      container.removeEventListener('mousemove', handleCtrlMouseMove)
+      container.removeEventListener('mousedown', handleCtrlClick)
+      window.removeEventListener('keydown', handleCtrlKeyDown)
+      window.removeEventListener('keyup',   handleCtrlKeyUp)
       window.removeEventListener('paste', onWindowPaste)
       EventsOff(outEvent)
       CloseTerminal(tabId)
       term.dispose()
       termRef.current = null
       fitRef.current = null
+      applyMatchRef.current = null
     }
   }, [tabId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -325,6 +456,27 @@ export default function Terminal({ tabId, active }: Props) {
         <span>{abbreviatePath(cwd)}</span>
       </div>
       <div ref={containerRef} className="terminal-container" />
+
+      {menu && ReactDOM.createPortal(
+        <div
+          className="completion-menu"
+          style={{ top: menu.top, left: menu.left }}
+        >
+          {menu.matches.map((m, i) => (
+            <div
+              key={m + i}
+              className={`completion-item${i === menu.selectedIdx && menu.applied ? ' applied' : ''}${i === menu.selectedIdx ? ' selected' : ''}`}
+              onMouseDown={e => {
+                e.preventDefault() // keep terminal focus
+                applyMatchRef.current?.(m)
+              }}
+            >
+              {m}
+            </div>
+          ))}
+        </div>,
+        document.body
+      )}
     </div>
   )
 }
