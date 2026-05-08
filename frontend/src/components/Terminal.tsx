@@ -24,6 +24,7 @@ interface Props {
   active: boolean
   xtermTheme: ITheme
   initialCwd?: string
+  defaultZoom?: number
 }
 
 // Completion dropdown state (React state for rendering)
@@ -46,13 +47,14 @@ const SLASH_COMMANDS: { cmd: string; desc: string }[] = [
   { cmd: '/config --reload', desc: 'reload config' },
   { cmd: '/help',            desc: 'show help' },
   { cmd: '/themes',          desc: 'list available themes' },
+  { cmd: '/preview',         desc: 'preview .md/.html or a URL/port' },
 ]
 
 function abbreviatePath(path: string): string {
   return path.replace(/\\/g, '/')
 }
 
-export default function Terminal({ tabId, active, xtermTheme, initialCwd }: Props) {
+export default function Terminal({ tabId, active, xtermTheme, initialCwd, defaultZoom = 1 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<XTerm | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
@@ -66,7 +68,7 @@ export default function Terminal({ tabId, active, xtermTheme, initialCwd }: Prop
   }, [xtermTheme])
 
   const [cwd, setCwd] = useState('')
-  const [fontSize, setFontSize] = useState(13)
+  const [fontSize, setFontSize] = useState(() => Math.round(13 * defaultZoom))
   const [menu, setMenu] = useState<MenuState | null>(null)
   const menuRef = useRef<MenuState | null>(null)
   useEffect(() => { menuRef.current = menu }, [menu])
@@ -83,6 +85,17 @@ export default function Terminal({ tabId, active, xtermTheme, initialCwd }: Prop
     EventsOn(event, (path: string) => setCwd(path))
     return () => EventsOff(event)
   }, [tabId])
+
+  // When defaultZoom changes (config reload), update xterm font size and refit.
+  useEffect(() => {
+    const newSize = Math.round(13 * defaultZoom)
+    setFontSize(newSize)
+    if (termRef.current) {
+      termRef.current.options.fontSize = newSize
+      const id = setTimeout(() => fitRef.current?.fit(), 50)
+      return () => clearTimeout(id)
+    }
+  }, [defaultZoom])
 
   const handleCwdClick = async () => {
     const path = await SelectDirectory().catch(() => '')
@@ -256,11 +269,21 @@ export default function Terminal({ tabId, active, xtermTheme, initialCwd }: Prop
       const filtered = SLASH_COMMANDS.filter(c => c.cmd.startsWith(line))
       if (filtered.length === 0) { setMenu(null); return true }
 
-      const { h } = cellDims()
+      const { h, w } = cellDims()
       const rect = container.getBoundingClientRect()
       const cursorRow = term.buffer.active.cursorY
-      const top  = rect.top + 6 + (cursorRow + 1) * h
-      const left = rect.left + 8
+      const cursorCol = term.buffer.active.cursorX
+
+      // Align left with the '/' character, not the container edge
+      const slashCol = Math.max(0, cursorCol - line.length)
+      const left = rect.left + 8 + slashCol * w
+
+      // Place below the cursor; flip above if it would overflow the viewport
+      const ITEM_H = 26
+      const menuH = Math.min(filtered.length * ITEM_H + 8, 220)
+      const below = rect.top + 6 + (cursorRow + 1) * h
+      const above = rect.top + 6 + cursorRow * h - menuH
+      const top = below + menuH > window.innerHeight - 8 ? above : below
 
       setMenu({
         matches:      filtered.map(c => c.cmd),
@@ -293,7 +316,12 @@ export default function Terminal({ tabId, active, xtermTheme, initialCwd }: Prop
           const cursorCol = term.buffer.active.cursorX
           const partialStartCol = cursorCol - partial.length
 
-          const top = rect.top + 6 + (cursorRow + 1) * h
+          // Place below the cursor; flip above if it would overflow the viewport
+          const ITEM_H = 26
+          const menuH = Math.min(matches.length * ITEM_H + 8, 220)
+          const below = rect.top + 6 + (cursorRow + 1) * h
+          const above = rect.top + 6 + cursorRow * h - menuH
+          const top = below + menuH > window.innerHeight - 8 ? above : below
           const left = Math.max(rect.left + 8, rect.left + 8 + partialStartCol * w)
 
           setMenu({

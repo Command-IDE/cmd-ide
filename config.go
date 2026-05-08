@@ -22,6 +22,9 @@ type Config struct {
 	ShowTimestamps   bool                 `json:"show_timestamps"`
 	GitRecognition   GitRecognitionConfig `json:"git_recognition"`
 	SoftClose        bool                 `json:"soft_close"`
+	ZoomInsights     bool                 `json:"zoom_insights"`
+	MinimalPwd       bool                 `json:"minimal_pwd"`
+	DefaultZoom      float64              `json:"default_zoom"`
 }
 
 var (
@@ -54,6 +57,8 @@ func ensureConfig() error {
 		ShowTimestamps:   false,
 		GitRecognition:   GitRecognitionConfig{ShowGitBranch: false},
 		SoftClose:        false,
+		ZoomInsights:     true,
+		DefaultZoom:      1.0,
 	}
 	data, _ := json.MarshalIndent(defaults, "", "  ")
 	return os.WriteFile(path, data, 0644)
@@ -74,6 +79,16 @@ func loadConfig() (Config, error) {
 	// Apply defaults for fields added after initial release.
 	if c.Theme == "" {
 		c.Theme = "dark"
+	}
+	// Apply defaults for keys added after the initial release.
+	// We check the raw JSON map so we can distinguish "absent" from "explicitly false/zero".
+	if rawMap := (map[string]json.RawMessage{}); json.Unmarshal(data, &rawMap) == nil {
+		if _, exists := rawMap["zoom_insights"]; !exists {
+			c.ZoomInsights = true
+		}
+		if _, exists := rawMap["default_zoom"]; !exists {
+			c.DefaultZoom = 1.0
+		}
 	}
 	// Always write back so the file always reflects all current fields,
 	// including any new ones added in this version.

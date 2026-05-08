@@ -24,6 +24,8 @@ export function InterruptCommand(arg1:string):Promise<void>;
 
 export function LoadSession():Promise<Array<main.SessionTab>>;
 
+export function ReadDatabase(arg1:string):Promise<main.DBSchema>;
+
 export function ReadFile(arg1:string):Promise<string>;
 
 export function SaveSession(arg1:Array<main.SessionTab>):Promise<void>;

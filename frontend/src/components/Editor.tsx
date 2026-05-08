@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useState, useMemo } from 'react'
+import React, { useRef, useCallback, useState, useMemo, useEffect } from 'react'
 import MonacoEditor, { OnMount, BeforeMount } from '@monaco-editor/react'
 import { WriteFile } from '../../wailsjs/go/main/App'
 import { THEMES } from '../themes'
@@ -13,12 +13,13 @@ interface Props {
   indentGuides: boolean
   monacoTheme: string
   minimap: boolean
+  defaultZoom?: number
 }
 
-export default function Editor({ tabId, filePath, content, language, active, indentGuides, monacoTheme, minimap }: Props) {
+export default function Editor({ tabId, filePath, content, language, active, indentGuides, monacoTheme, minimap, defaultZoom = 1 }: Props) {
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null)
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [fontSize, setFontSize] = useState(13)
+  const [fontSize, setFontSize] = useState(() => Math.round(13 * defaultZoom))
 
   const beforeMount: BeforeMount = (monaco) => {
     // Register all custom themes so they're available immediately
@@ -89,6 +90,13 @@ export default function Editor({ tabId, filePath, content, language, active, ind
       highlightActiveIndentation: indentGuides,
     },
   }), [fontSize, indentGuides, minimap])
+
+  // When defaultZoom changes (config reload), update Monaco font size to match.
+  useEffect(() => {
+    const newSize = Math.round(13 * defaultZoom)
+    setFontSize(newSize)
+    editorRef.current?.updateOptions({ fontSize: newSize })
+  }, [defaultZoom])
 
   const onMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor

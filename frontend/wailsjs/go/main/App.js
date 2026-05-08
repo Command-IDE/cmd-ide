@@ -46,6 +46,10 @@ export function LoadSession() {
   return window['go']['main']['App']['LoadSession']();
 }
 
+export function ReadDatabase(arg1) {
+  return window['go']['main']['App']['ReadDatabase'](arg1);
+}
+
 export function ReadFile(arg1) {
   return window['go']['main']['App']['ReadFile'](arg1);
 }

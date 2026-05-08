@@ -217,7 +217,16 @@ func (a *App) CtrlClickPath(id string, path string) {
 		return
 	}
 
-	// Open the file in the editor
+	// Database file → open in DB viewer
+	if isDBFile(path) {
+		wailsruntime.EventsEmit(t.ctx, "app:open-database", map[string]string{
+			"path":       path,
+			"terminalId": id,
+		})
+		return
+	}
+
+	// Regular file → open in editor
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return

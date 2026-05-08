@@ -33,11 +33,42 @@
   position: relative;
 }
 
+/* All panes are absolutely positioned so they can be repositioned for
+   split-screen without unmounting (terminals/editors stay alive). */
 .app__pane {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  top: 0;
+  bottom: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+/* Focused-pane indicator in split mode */
+.app__pane--focused::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(106, 180, 250, 0.2);
+  z-index: 5;
+}
+
+/* Draggable split divider */
+.app__divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: col-resize;
+  background: var(--border-color);
+  z-index: 20;
+  transition: background 0.15s;
+}
+
+.app__divider:hover,
+.app__divider:active {
+  background: rgba(106, 180, 250, 0.45);
 }
 
 /* Terminal pane */

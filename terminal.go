@@ -92,6 +92,20 @@ func (t *Terminal) prompt() string {
 	}
 	dir = filepath.ToSlash(dir)
 
+	// minimal_pwd: keep only the last 2 path segments for a cleaner prompt.
+	if cfg.MinimalPwd {
+		parts := strings.Split(dir, "/")
+		var segs []string
+		for _, p := range parts {
+			if p != "" {
+				segs = append(segs, p)
+			}
+		}
+		if len(segs) > 2 {
+			dir = strings.Join(segs[len(segs)-2:], "/")
+		}
+	}
+
 	var sb strings.Builder
 	sb.WriteString("\r\n")
 
@@ -176,6 +190,8 @@ func (t *Terminal) ExecuteCommand(line string) {
 			}
 		case "help":
 			t.builtinHelp()
+		case "preview":
+			t.builtinPreview(parts[1:])
 		default:
 			t.execExternal(parts)
 		}
@@ -189,6 +205,8 @@ func (t *Terminal) ExecuteCommand(line string) {
 func (t *Terminal) Interrupt() {
 	t.mu.Lock()
 	cmd := t.runningCmd
+	t.runningCmd = nil
+	t.runningIn = nil
 	t.mu.Unlock()
 	if cmd != nil && cmd.Process != nil {
 		cmd.Process.Kill()
@@ -315,10 +333,11 @@ func (t *Terminal) builtinHelp() {
 	type entry struct{ name, desc string }
 
 	appCmds := []entry{
-		{"/config",           "open config.json in the editor"},
-		{"/config --reload",  "reload config from disk"},
-		{"/themes",           "list available themes"},
-		{"/help",             "show this help"},
+		{"/config",              "open config.json in the editor"},
+		{"/config --reload",     "reload config from disk"},
+		{"/themes",              "list available themes"},
+		{"/preview <file|url>",  "preview .md/.html or a URL/port"},
+		{"/help",                "show this help"},
 	}
 	stdCmds := []entry{
 		{"cd <dir>",          "change the working directory"},
@@ -407,6 +426,17 @@ func (t *Terminal) builtinOpen(args []string) {
 	}
 	path = filepath.Clean(path)
 
+	// Database file → DB viewer
+	if isDBFile(path) {
+		t.write("\r\n\x1b[38;5;246mopening database " + filepath.Base(path) + "\x1b[0m")
+		wailsruntime.EventsEmit(t.ctx, "app:open-database", map[string]string{
+			"path":       path,
+			"terminalId": t.id,
+		})
+		t.write(t.prompt())
+		return
+	}
+
 	content, err := os.ReadFile(path)
 	if err != nil {
 		t.write("\r\n\x1b[31mopen: " + err.Error() + "\x1b[0m")
@@ -423,6 +453,86 @@ func (t *Terminal) builtinOpen(args []string) {
 		"terminalId": t.id,
 	})
 	t.write(t.prompt())
+}
+
+func (t *Terminal) builtinPreview(args []string) {
+	if len(args) == 0 {
+		t.write("\r\n\x1b[31mpreview: usage: /preview <file.md|file.html|localhost:PORT|http://...>\x1b[0m")
+		t.write(t.prompt())
+		return
+	}
+	target := args[0]
+
+	// URL / host:port
+	if isPreviewURL(target) {
+		url := target
+		if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+			url = "http://" + url
+		}
+		wailsruntime.EventsEmit(t.ctx, "app:open-preview", map[string]string{
+			"type":       "url",
+			"url":        url,
+			"path":       url,
+			"terminalId": t.id,
+		})
+		t.write("\r\n\x1b[38;5;246mopening preview: " + url + "\x1b[0m")
+		t.write(t.prompt())
+		return
+	}
+
+	// File
+	path := target
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(t.cwd, path)
+	}
+	path = filepath.Clean(path)
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.write("\r\n\x1b[31mpreview: " + err.Error() + "\x1b[0m")
+		t.write(t.prompt())
+		return
+	}
+
+	ext := strings.ToLower(filepath.Ext(path))
+	var previewType string
+	switch ext {
+	case ".md", ".mdx":
+		previewType = "markdown"
+	case ".html", ".htm":
+		previewType = "html"
+	default:
+		t.write("\r\n\x1b[31mpreview: unsupported file type — use .md, .html, or a URL\x1b[0m")
+		t.write(t.prompt())
+		return
+	}
+
+	t.write("\r\n\x1b[38;5;246mopening preview: " + filepath.Base(path) + "\x1b[0m")
+	wailsruntime.EventsEmit(t.ctx, "app:open-preview", map[string]string{
+		"type":       previewType,
+		"path":       path,
+		"content":    string(content),
+		"terminalId": t.id,
+	})
+	t.write(t.prompt())
+}
+
+// isPreviewURL returns true if s looks like a URL or host:port pair.
+func isPreviewURL(s string) bool {
+	if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
+		return true
+	}
+	// host:PORT — second segment must be all digits
+	parts := strings.SplitN(s, ":", 2)
+	if len(parts) == 2 {
+		for _, c := range parts[1] {
+			if c < '0' || c > '9' {
+				return false
+			}
+		}
+		return len(parts[1]) > 0
+	}
+	return false
 }
 
 // ─── external command execution ───────────────────────────────────────────────
@@ -485,9 +595,14 @@ func (t *Terminal) execExternal(parts []string) {
 	cmd.Wait()
 
 	t.mu.Lock()
+	wasInterrupted := t.runningCmd == nil // Interrupt() already cleared it
 	t.runningCmd, t.runningIn = nil, nil
 	t.mu.Unlock()
-	t.write(t.prompt())
+
+	// Only print a prompt if Interrupt() hasn't already done so.
+	if !wasInterrupted {
+		t.write(t.prompt())
+	}
 }
 
 // normNewlines converts bare \n → \r\n while leaving \r and \r\n intact
