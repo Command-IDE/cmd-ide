@@ -11,9 +11,9 @@ installer/frontend/node_modules
 installer/assets/terminal-IDE.exe
 
 # Stale root-level artifacts (pre-restructure)
-build/
-frontend/
-terminal-ide.exe
+/build/
+/frontend/
+/terminal-ide.exe
 
 # Dependency directories (any sub-project)
 node_modules
