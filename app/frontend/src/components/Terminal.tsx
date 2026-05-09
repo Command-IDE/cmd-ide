@@ -43,12 +43,15 @@ interface MenuState {
 // App-specific slash commands shown in the autocomplete dropdown.
 // Standard terminal commands (cd, ls, clear, etc.) do not need a slash.
 const SLASH_COMMANDS: { cmd: string; desc: string }[] = [
-  { cmd: '/config',          desc: 'open config.json' },
-  { cmd: '/config --reload', desc: 'reload config' },
-  { cmd: '/help',            desc: 'show help' },
-  { cmd: '/themes',          desc: 'list available themes' },
+  { cmd: '/config',          desc: 'open settings & theme UI' },
+  { cmd: '/config --raw',    desc: 'edit config.json directly' },
+  { cmd: '/config --reload', desc: 'reload config from disk' },
+  { cmd: '/config --reset',  desc: 'reset to defaults' },
+  { cmd: '/themes',          desc: 'list available theme names' },
   { cmd: '/preview',         desc: 'preview .md/.html or a URL/port' },
   { cmd: '/problems',        desc: 'show project diagnostics' },
+  { cmd: '/version',         desc: 'show app version info' },
+  { cmd: '/help',            desc: 'show all commands' },
 ]
 
 function abbreviatePath(path: string): string {

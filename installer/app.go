@@ -12,7 +12,7 @@ import (
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-//go:embed assets/terminal-IDE.exe
+//go:embed assets/cmdIDE.exe
 var appBinary []byte
 
 // App holds the installer backend state.
@@ -29,7 +29,7 @@ func (a *App) startup(ctx context.Context) {
 // GetInstallDir returns the directory the app will be installed into.
 func (a *App) GetInstallDir() string {
 	local, _ := os.UserCacheDir() // %LOCALAPPDATA% on Windows
-	return filepath.Join(local, "terminal-IDE")
+	return filepath.Join(local, "cmdIDE")
 }
 
 // Install extracts the embedded binary to the install directory,
@@ -51,7 +51,7 @@ func (a *App) Install(createShortcut bool) error {
 	}
 
 	emit(55, "Copying files…")
-	dest := filepath.Join(installDir, "terminal-IDE.exe")
+	dest := filepath.Join(installDir, "cmdIDE.exe")
 	if err := os.WriteFile(dest, appBinary, 0o755); err != nil {
 		return fmt.Errorf("could not write executable: %w", err)
 	}
@@ -68,18 +68,18 @@ func (a *App) Install(createShortcut bool) error {
 	return nil
 }
 
-// createDesktopShortcut places a terminal-IDE.lnk on the user's Desktop.
+// createDesktopShortcut places a cmdIDE.lnk on the user's Desktop.
 // It uses [System.Environment]::GetFolderPath so OneDrive-redirected
 // desktops are resolved correctly.
 func (a *App) createDesktopShortcut(installDir string) error {
-	exe := filepath.Join(installDir, "terminal-IDE.exe")
+	exe := filepath.Join(installDir, "cmdIDE.exe")
 
 	// Use PowerShell string concatenation so we avoid quoting issues
 	// with double-quoted variable expansion inside -Command.
 	script := fmt.Sprintf(
 		`$d=[System.Environment]::GetFolderPath('Desktop');`+
 			`$s=New-Object -ComObject WScript.Shell;`+
-			`$l=$s.CreateShortcut($d+'\terminal-IDE.lnk');`+
+			`$l=$s.CreateShortcut($d+'\cmdIDE.lnk');`+
 			`$l.TargetPath='%s';`+
 			`$l.WorkingDirectory='%s';`+
 			`$l.Save()`,
@@ -92,7 +92,7 @@ func (a *App) createDesktopShortcut(installDir string) error {
 
 // LaunchAndClose starts the installed app as a detached process then quits the installer.
 func (a *App) LaunchAndClose() {
-	exe := filepath.Join(a.GetInstallDir(), "terminal-IDE.exe")
+	exe := filepath.Join(a.GetInstallDir(), "cmdIDE.exe")
 	cmd := exec.Command(exe)
 	noWindow(cmd)
 	_ = cmd.Start()

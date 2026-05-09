@@ -182,8 +182,6 @@ func (t *Terminal) ExecuteCommand(line string) {
 		switch cmd {
 		case "themes":
 			t.builtinThemes()
-		case "theme":
-			t.builtinConfigOpen()
 		case "config":
 			if len(parts) > 1 && parts[1] == "--reload" {
 				t.builtinConfigReload()
@@ -328,17 +326,13 @@ func (t *Terminal) builtinLS(parts []string) {
 // availableThemes lists every theme key defined in frontend/src/themes.ts.
 var availableThemes = []string{"dark", "blackout", "dim-green", "dim-blue"}
 
-func (t *Terminal) builtinTheme() {
-	t.builtinConfigOpen()
-}
-
 func (t *Terminal) builtinThemes() {
 	var sb strings.Builder
 	sb.WriteString("\r\n\x1b[38;5;75mAvailable themes\x1b[0m\r\n")
 	for _, name := range availableThemes {
 		sb.WriteString("  \x1b[38;5;246m•\x1b[0m " + name + "\r\n")
 	}
-	sb.WriteString("\r\n\x1b[38;5;246mTo apply: run \x1b[38;5;75m/config\x1b[38;5;246m, set \"theme\": \"<name>\", save, then run \x1b[38;5;75m/config --reload\x1b[0m")
+	sb.WriteString("\r\n\x1b[38;5;246mTo apply: run \x1b[38;5;75m/config\x1b[38;5;246m and select from the theme dropdown\x1b[0m")
 	t.write(sb.String())
 	t.write(t.prompt())
 }
@@ -363,7 +357,6 @@ func (t *Terminal) builtinHelp() {
 		{"/config --raw",        "open config.json in the editor"},
 		{"/config --reload",     "reload config from disk"},
 		{"/config --reset",      "reset config to default settings"},
-		{"/theme",               "alias for /config"},
 		{"/themes",              "list available preset theme names"},
 		{"/preview <file|url>",  "preview .md/.html or a URL/port"},
 		{"/problems",            "scan project for errors, opens a tab"},

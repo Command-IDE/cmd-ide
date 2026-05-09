@@ -24,7 +24,7 @@ func sessionFilePath() string {
 	if err != nil {
 		dir, _ = os.UserHomeDir()
 	}
-	return filepath.Join(dir, "terminal-IDE", "session.json")
+	return filepath.Join(dir, "cmdIDE", "session.json")
 }
 
 // SaveSession persists the current tab list to disk (soft-close).

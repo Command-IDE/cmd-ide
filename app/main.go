@@ -15,7 +15,7 @@ func main() {
 	app := NewApp()
 
 	err := wails.Run(&options.App{
-		Title:     "terminal-IDE",
+		Title:     "cmdIDE",
 		Width:     1280,
 		Height:    800,
 		MinWidth:  800,

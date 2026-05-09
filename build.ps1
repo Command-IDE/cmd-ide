@@ -7,8 +7,8 @@
 #   -InstallerOnly build only the installer (app binary must already exist)
 #
 # Output:
-#   app\build\bin\terminal-IDE.exe
-#   installer\build\bin\terminal-IDE-installer.exe
+#   app\build\bin\cmdIDE.exe
+#   installer\build\bin\cmdIDE-installer.exe
 
 param(
     [switch]$AppOnly,
@@ -32,7 +32,7 @@ if (-not $InstallerOnly) {
     $code = $LASTEXITCODE
     Pop-Location
     if ($code -ne 0) { Fail "App build failed." }
-    Ok "App built  ->  app\build\bin\terminal-IDE.exe"
+    Ok "App built  ->  app\build\bin\cmdIDE.exe"
 }
 
 if ($AppOnly) { Write-Host "`n  Done (app only).`n" -ForegroundColor Green; exit 0 }
@@ -42,8 +42,8 @@ if ($AppOnly) { Write-Host "`n  Done (app only).`n" -ForegroundColor Green; exit
 # --------------------------------------------------------------------------
 Step "Staging app binary into installer/assets..."
 
-$src = Join-Path $root "app\build\bin\terminal-IDE.exe"
-$dst = Join-Path $root "installer\assets\terminal-IDE.exe"
+$src = Join-Path $root "app\build\bin\cmdIDE.exe"
+$dst = Join-Path $root "installer\assets\cmdIDE.exe"
 
 if (-not (Test-Path $src)) {
     Fail "App binary not found at $src - build the app first (run without -InstallerOnly)."
@@ -51,7 +51,7 @@ if (-not (Test-Path $src)) {
 
 New-Item -Force -ItemType Directory (Join-Path $root "installer\assets") | Out-Null
 Copy-Item -Force $src $dst
-Ok "Copied terminal-IDE.exe -> installer\assets\"
+Ok "Copied cmdIDE.exe -> installer\assets\"
 
 # --------------------------------------------------------------------------
 # 3. Build installer
@@ -70,12 +70,12 @@ wails build
 $code = $LASTEXITCODE
 Pop-Location
 if ($code -ne 0) { Fail "Installer build failed." }
-Ok "Installer built  ->  installer\build\bin\terminal-IDE-installer.exe"
+Ok "Installer built  ->  installer\build\bin\cmdIDE-installer.exe"
 
 # --------------------------------------------------------------------------
 Write-Host ""
 Write-Host "  Build complete." -ForegroundColor Green
 Write-Host ""
-Write-Host "    App:       app\build\bin\terminal-IDE.exe" -ForegroundColor DarkGray
-Write-Host "    Installer: installer\build\bin\terminal-IDE-installer.exe" -ForegroundColor DarkGray
+Write-Host "    App:       app\build\bin\cmdIDE.exe" -ForegroundColor DarkGray
+Write-Host "    Installer: installer\build\bin\cmdIDE-installer.exe" -ForegroundColor DarkGray
 Write-Host ""

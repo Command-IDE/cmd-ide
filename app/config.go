@@ -40,7 +40,7 @@ func configFilePath() string {
 	if err != nil {
 		dir, _ = os.UserHomeDir()
 	}
-	return filepath.Join(dir, "terminal-IDE", "config.json")
+	return filepath.Join(dir, "cmdIDE", "config.json")
 }
 
 func ensureConfig() error {
