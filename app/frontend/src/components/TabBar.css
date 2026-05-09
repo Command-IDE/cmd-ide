@@ -1,0 +1,224 @@
+/* ── Shell ─────────────────────────────────────────────────────────────────── */
+.tabbar {
+  display: flex;
+  align-items: stretch;
+  background: var(--app-bg);
+  border-bottom: 1px solid var(--border-color);
+  height: 40px;
+  flex-shrink: 0;
+  user-select: none;
+  overflow: hidden;
+}
+
+/* ── Scrollable flat tab strip ─────────────────────────────────────────────── */
+.tabbar__strip {
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  flex-shrink: 1;
+  min-width: 0;
+  /* small left padding so first tab doesn't sit flush against edge */
+  padding-left: 4px;
+}
+.tabbar__strip::-webkit-scrollbar { display: none; }
+
+/* ── Group wrapper (no visual border — pure layout + hover target) ──────────── */
+.tabbar__group {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+/* ── Group divider ─────────────────────────────────────────────────────────── */
+.tabbar__sep {
+  width: 1px;
+  margin: 9px 4px;
+  background: var(--border-color);
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+/* ── Individual tab ────────────────────────────────────────────────────────── */
+.tabbar__tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  height: 100%;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
+  color: var(--tab-color);
+  transition: background 0.1s, color 0.1s;
+  /* bottom accent line driven by --tab-accent CSS variable set inline */
+  box-shadow: inset 0 -2px 0 transparent;
+}
+
+.tabbar__tab.is-active {
+  color: #e2e2e2;
+  box-shadow: inset 0 -2px 0 var(--tab-accent, #4fc3f7);
+}
+
+.tabbar__tab.is-secondary {
+  box-shadow: inset 0 -2px 0 var(--tab-accent, rgba(180,150,250,0.7));
+}
+
+.tabbar__tab:hover {
+  background: rgba(255,255,255,0.05);
+  color: var(--tab-color-hover);
+}
+
+/* File tabs get a subtle left rule to separate from terminal tabs */
+.tabbar__tab--file {
+  border-left: 1px solid rgba(255,255,255,0.05);
+}
+.tabbar__tab--file:first-child {
+  border-left: none;
+}
+
+/* Tab label — truncate long filenames */
+.tabbar__tab-title {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 1;
+}
+
+/* ── Secondary-pane "2" badge ──────────────────────────────────────────────── */
+.tabbar__badge-2 {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(180,150,250,0.9);
+  background: rgba(180,150,250,0.12);
+  border-radius: 3px;
+  padding: 0 3px;
+  line-height: 14px;
+  flex-shrink: 0;
+}
+
+/* ── Close × button ─────────────────────────────────────────────────────────── */
+.tabbar__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  background: none;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  color: inherit;
+  padding: 0;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s;
+}
+.tabbar__tab:hover     .tabbar__close { opacity: 0.5; }
+.tabbar__tab.is-active .tabbar__close { opacity: 0.5; }
+.tabbar__close:hover { opacity: 1 !important; background: rgba(255,255,255,0.1); }
+
+/* ── Sibling terminal "+" — shows on group hover ───────────────────────────── */
+.tabbar__sib-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s;
+}
+.tabbar__group:hover .tabbar__sib-add { opacity: 0.35; }
+.tabbar__sib-add:hover { opacity: 1 !important; background: rgba(255,255,255,0.06); }
+
+/* ── New top-level terminal "+" ─────────────────────────────────────────────── */
+.tabbar__new-term {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--tab-color);
+  flex-shrink: 0;
+  opacity: 0.4;
+  transition: opacity 0.1s, background 0.1s;
+}
+.tabbar__new-term:hover {
+  opacity: 1;
+  background: rgba(255,255,255,0.05);
+  color: var(--tab-color-hover);
+}
+
+/* ── Draggable spacer ──────────────────────────────────────────────────────── */
+.tabbar__spacer {
+  flex: 1;
+  height: 100%;
+  min-width: 16px;
+}
+
+/* ── Split-view toggle ─────────────────────────────────────────────────────── */
+.tabbar__split {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 100%;
+  background: none;
+  border: none;
+  border-left: 1px solid var(--border-color);
+  cursor: pointer;
+  color: var(--tab-color);
+  flex-shrink: 0;
+  opacity: 0.4;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
+}
+.tabbar__split:hover {
+  opacity: 1;
+  background: rgba(255,255,255,0.05);
+  color: var(--tab-color-hover);
+}
+.tabbar__split.is-active {
+  opacity: 1;
+  color: #6ab4fa;
+  background: rgba(106,180,250,0.08);
+  border-left-color: rgba(106,180,250,0.18);
+}
+.tabbar__split.is-active:hover {
+  background: rgba(106,180,250,0.14);
+}
+
+/* ── Window controls ───────────────────────────────────────────────────────── */
+.tabbar__wincontrols {
+  display: flex;
+  align-items: stretch;
+  border-left: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.wc-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--tab-color);
+  transition: background 0.12s, color 0.12s;
+  padding: 0;
+}
+.wc-btn:hover  { color: #d0d0d0; background: rgba(255,255,255,0.07); }
+.wc-close:hover { background: #c0392b; color: #fff; }

@@ -1,0 +1,189 @@
+/* ── Container ─────────────────────────────────────────────────────────── */
+.preview-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--app-bg);
+}
+
+.preview-infobar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+.preview-infobar__label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-infobar__refresh {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--info-bar-color);
+  display: flex;
+  align-items: center;
+  padding: 2px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  transition: color 0.1s, background 0.1s;
+}
+
+.preview-infobar__refresh:hover {
+  color: var(--info-bar-hover-color);
+  background: rgba(255,255,255,0.06);
+}
+
+/* ── Body ───────────────────────────────────────────────────────────────── */
+.preview-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── iframe (HTML + URL) ────────────────────────────────────────────────── */
+.preview-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #fff;
+  flex: 1;
+}
+
+/* ── Markdown ───────────────────────────────────────────────────────────── */
+.preview-md-scroll {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.preview-md-body {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 36px 48px 64px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.7;
+  color: #c9d1d9;
+}
+
+/* Headings */
+.preview-md-body h1,
+.preview-md-body h2 {
+  border-bottom: 1px solid #30363d;
+  padding-bottom: 0.3em;
+  margin-top: 1.5em;
+  margin-bottom: 0.8em;
+}
+
+.preview-md-body h1 { font-size: 2em;   color: #e6edf3; }
+.preview-md-body h2 { font-size: 1.5em; color: #e6edf3; }
+.preview-md-body h3 { font-size: 1.25em; color: #e6edf3; margin-top: 1.4em; margin-bottom: 0.6em; }
+.preview-md-body h4 { font-size: 1em;   color: #e6edf3; margin-top: 1.2em; margin-bottom: 0.4em; }
+.preview-md-body h5,
+.preview-md-body h6 { font-size: 0.875em; color: #8b949e; margin-top: 1em; margin-bottom: 0.4em; }
+
+/* Paragraphs */
+.preview-md-body p { margin: 0 0 1em; }
+
+/* Links */
+.preview-md-body a { color: #58a6ff; text-decoration: none; }
+.preview-md-body a:hover { text-decoration: underline; }
+
+/* Inline code */
+.preview-md-body code {
+  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+  font-size: 0.875em;
+  padding: 0.2em 0.4em;
+  background: rgba(110,118,129,0.2);
+  border-radius: 4px;
+  color: #ff7b72;
+}
+
+/* Code blocks */
+.preview-md-body pre {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 16px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.preview-md-body pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  color: #c9d1d9;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Blockquote */
+.preview-md-body blockquote {
+  border-left: 4px solid #30363d;
+  margin: 0 0 1em;
+  padding: 0.5em 1em;
+  color: #8b949e;
+}
+
+.preview-md-body blockquote p { margin: 0; }
+
+/* Lists */
+.preview-md-body ul,
+.preview-md-body ol {
+  padding-left: 2em;
+  margin: 0 0 1em;
+}
+
+.preview-md-body li { margin-bottom: 0.25em; }
+.preview-md-body li > p { margin: 0; }
+
+/* Task lists */
+.preview-md-body input[type="checkbox"] {
+  margin-right: 0.5em;
+  accent-color: #238636;
+}
+
+/* Tables */
+.preview-md-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  font-size: 14px;
+}
+
+.preview-md-body th,
+.preview-md-body td {
+  border: 1px solid #30363d;
+  padding: 8px 13px;
+  text-align: left;
+}
+
+.preview-md-body th {
+  background: #161b22;
+  color: #e6edf3;
+  font-weight: 600;
+}
+
+.preview-md-body tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+/* HR */
+.preview-md-body hr {
+  border: none;
+  border-top: 1px solid #30363d;
+  margin: 2em 0;
+}
+
+/* Images */
+.preview-md-body img {
+  max-width: 100%;
+  border-radius: 4px;
+}
