@@ -4,6 +4,11 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    // Replaced at build time; Rollup tree-shakes dead branches.
+    // Set VITE_PLUGINS=true when building the plugins variant.
+    __PLUGINS__: process.env.VITE_PLUGINS === 'true',
+  },
   resolve: {
     alias: {
       '@cmdide/plugin-sdk': path.resolve(__dirname, '../../packages/plugin-sdk'),

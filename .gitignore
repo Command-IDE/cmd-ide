@@ -20,3 +20,4 @@ node_modules
 /app/.cache
 /installer/.cache
 /docs/dist
+/.claude

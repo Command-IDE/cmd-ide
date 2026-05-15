@@ -7,3 +7,9 @@
 [submodule "app/powershell"]
 	path = app/powershell
 	url = https://github.com/Command-IDE/powershell
+[submodule "app/bash"]
+	path = app/bash
+	url = https://github.com/Command-IDE/bash
+[submodule "app/zsh"]
+	path = app/zsh
+	url = https://github.com/Command-IDE/zsh

@@ -220,6 +220,7 @@ const defaultConfig: AppConfig = {
   git_recognition: { show_git_branch: false }, soft_close: false,
   zoom_insights: true, minimal_pwd: false, default_zoom: 1,
   terminal_word_wrap: false, file_word_wrap: false, scroll_speed: 1,
+  preferred_shell: '',
 }
 
 const initialTab = makeTerminalTab()
@@ -247,6 +248,7 @@ export default function App() {
 
   // ── plugin loader ─────────────────────────────────────────────────────────────
   const reloadPlugins = useCallback(async () => {
+    if (!__PLUGINS__) return
     const loaded = await loadInstalledPlugins().catch(() => [] as Plugin[])
     const map: Record<string, Plugin> = {}
     for (const p of loaded) { if (p.tabType) map[p.tabType] = p }
@@ -415,6 +417,7 @@ export default function App() {
     EventsOn('app:open-tab', (...args: any[]) => {
       const p = args[0] as { type: string; title: string; terminalId?: string; cwd?: string }
       if (!p?.type) return
+      if (!__PLUGINS__ && (p.type === 'plugins' || p.type in {'git':1,'notepad':1,'claude':1})) return
       dispatch({ type: 'open-tab', tabType: p.type, title: p.title, terminalId: p.terminalId, cwd: p.cwd })
     })
     return () => EventsOff('app:open-tab')
@@ -423,6 +426,7 @@ export default function App() {
   // terminal:open-plugin-tab — window CustomEvent from Terminal.tsx for /git, /note, /claude, etc.
   useEffect(() => {
     const handler = (e: Event) => {
+      if (!__PLUGINS__) return
       const { type, title, terminalId, cwd } = (e as CustomEvent).detail ?? {}
       if (!type) return
       dispatch({ type: 'open-tab', tabType: type, title, terminalId, cwd })
@@ -678,6 +682,7 @@ export default function App() {
       return <PerfTab tabId={tab.id} active={isActive} />
     }
     if (tab.type === 'plugins') {
+      if (!__PLUGINS__) return null
       return (
         <PluginStore
           tabId={tab.id}
@@ -687,6 +692,7 @@ export default function App() {
       )
     }
     // Plugin tabs (git, notepad, claude, external plugins)
+    if (!__PLUGINS__) return null
     const plugin = plugins[tab.type]
     if (plugin?.TabComponent) {
       const context: PluginContext = {

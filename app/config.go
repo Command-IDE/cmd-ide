@@ -31,6 +31,7 @@ type Config struct {
 	TerminalWordWrap bool              `json:"terminal_word_wrap"`
 	FileWordWrap     bool              `json:"file_word_wrap"`
 	ScrollSpeed      int               `json:"scroll_speed"`
+	PreferredShell   string            `json:"preferred_shell"` // "zsh" | "bash" | "sh" | "" (auto)
 }
 
 var (

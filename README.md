@@ -21,21 +21,13 @@ A desktop terminal IDE built with Wails, Go, React, and TypeScript. Combines a m
 | `/problems` | Scans the current directory and opens a structured problems tab |
 | `/preview` | Opens a live preview tab for a file or URL |
 | `/ports` | Shows all ports currently in use on the machine |
-| `/perf` | Opens a performance tab — CPU, memory, disk, GPU, and network |
+| `/performance` | Opens a performance tab — CPU, memory, disk, GPU, and network |
 | `/pack` | Zips the current directory |
 | `/pack --dryrun` | Previews what would be included in the zip, with raw and compressed size estimates |
 | `/plugins` | Opens the plugin store |
-| `/db` | Opens a database inspection tab for SQLite files |
-| `/git` | Opens the Git Insights panel (requires Git plugin) |
-| `/note` / `/notepad` | Opens the Notepad plugin tab |
-| `/claude` | Opens the Claude AI plugin tab |
 
 ### Plugins
-The plugin store (`/plugins`) lets you install official and community-built plugins. Official plugins ship as part of the app:
-
-- **Git Insights** — a GitHub Desktop-style git panel for staging, committing, pushing, and branch management
-- **Notepad** — persistent in-app notes with a sidebar list and full-height editor
-- **Claude AI** — chat with Claude directly inside the IDE, with one-click "Run in terminal" for code suggestions
+The plugin store (`/plugins`) lets you install official and community-built plugins.
 
 Community plugins can be installed from any public GitHub repository built with the CMD IDE Plugin SDK.
 
@@ -103,8 +95,8 @@ wails dev
 | Platform | Status |
 |---|---|
 | Windows | Supported |
-| macOS | Planned |
-| Linux | Planned |
+| macOS | Supported |
+| Linux | Supported |
 
 ---
 

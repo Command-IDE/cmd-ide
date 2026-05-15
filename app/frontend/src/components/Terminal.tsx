@@ -58,7 +58,7 @@ const STATIC_SLASH_COMMANDS: { cmd: string; desc: string }[] = [
   { cmd: '/pack --dryrun',   desc: 'preview what would be zipped' },
   { cmd: '/ports',           desc: 'open ports monitor tab' },
   { cmd: '/performance',     desc: 'open performance monitor tab' },
-  { cmd: '/plugins',         desc: 'open plugin store' },
+  ...(__PLUGINS__ ? [{ cmd: '/plugins', desc: 'open plugin store' }] : []),
   { cmd: '/version',         desc: 'show app version info' },
   { cmd: '/help',            desc: 'show all commands' },
 ]
@@ -163,6 +163,33 @@ export default function Terminal({ tabId, active, xtermTheme, initialCwd, defaul
     fitAddon.fit()
     termRef.current = term
     fitRef.current = fitAddon
+
+    // Ctrl+C: copy on first press with selection, kill on second press (or no selection).
+    // Must use attachCustomKeyEventHandler — it's the only xterm API that runs before
+    // xterm clears the selection and before onData fires.
+    let ctrlCCopies = 0
+    let ctrlCTimer: ReturnType<typeof setTimeout> | null = null
+    term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
+      if (e.type !== 'keydown' || !e.ctrlKey || e.key !== 'c') return true
+      const selection = term.getSelection()
+      if (selection) {
+        ctrlCCopies++
+        if (ctrlCTimer) clearTimeout(ctrlCTimer)
+        if (ctrlCCopies === 1) {
+          // First press with selection: copy, keep selection, block kill
+          SetClipboardText(selection).catch(() => {})
+          ctrlCTimer = setTimeout(() => { ctrlCCopies = 0 }, 1000)
+          return false // block xterm from sending ^C
+        }
+        // Second press with selection: kill
+        ctrlCCopies = 0
+        term.clearSelection()
+        return true // let xterm send ^C normally
+      }
+      // No selection: always kill
+      ctrlCCopies = 0
+      return true
+    })
 
     // ── Ctrl+Click: open files / cd into directories ─────────────────────────
     // Direct mouse-event approach — more reliable than registerLinkProvider in
@@ -424,7 +451,6 @@ export default function Terminal({ tabId, active, xtermTheme, initialCwd, defaul
         if (m) {
           e.preventDefault()
           if (m.applied) {
-            // Restore the original typed partial
             eraseChars(m.appliedLen)
             term.write(m.originalPartial)
             lineRef.current = m.prefix + m.originalPartial
@@ -449,7 +475,6 @@ export default function Terminal({ tabId, active, xtermTheme, initialCwd, defaul
     // ── input ─────────────────────────────────────────────────────────────────
 
     const undoStack: string[] = []
-    let lastCtrlC = 0
 
     term.onData((data: string) => {
       // Enter
@@ -499,20 +524,9 @@ export default function Terminal({ tabId, active, xtermTheme, initialCwd, defaul
         return
       }
 
-      // Ctrl+C — smart: copy selection first, kill on second press or no selection
+      // Ctrl+C — kill (copy-with-selection is handled in the keydown capture listener)
       if (data === '\x03') {
         setMenu(null)
-        const selection = term.getSelection()
-        const now = Date.now()
-        if (selection && (now - lastCtrlC) > 800) {
-          // First Ctrl+C with selection: copy
-          SetClipboardText(selection).catch(() => {})
-          term.clearSelection()
-          lastCtrlC = now
-          return
-        }
-        // No selection or second press: kill
-        lastCtrlC = 0
         undoStack.length = 0
         term.write('^C\r\n')
         lineRef.current = ''

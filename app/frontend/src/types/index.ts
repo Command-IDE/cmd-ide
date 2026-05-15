@@ -121,4 +121,5 @@ export interface AppConfig {
   terminal_word_wrap: boolean
   file_word_wrap: boolean
   scroll_speed: number
+  preferred_shell: string  // "zsh" | "bash" | "sh" | "" (auto-detect)
 }

@@ -28,6 +28,10 @@
     "wailsjs",
     "../../packages"
   ],
+  "exclude": [
+    "../../packages/**/vite.config.ts",
+    "../../packages/**/node_modules"
+  ],
   "references": [
     { "path": "./tsconfig.node.json" }
   ]

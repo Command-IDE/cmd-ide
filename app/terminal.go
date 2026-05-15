@@ -13,8 +13,13 @@ import (
 	"sync"
 	"time"
 
-	ps   "terminal-ide/powershell"
-	term "terminal-ide/terminal"
+	"terminal-ide/database"
+	"terminal-ide/pack"
+	"terminal-ide/ports"
+	"terminal-ide/problems"
+
+	ps   "github.com/Command-IDE/powershell/src"
+	term "github.com/Command-IDE/terminal/src"
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -540,7 +545,7 @@ func (t *Terminal) builtinKill(args []string) {
 		t.write(t.prompt())
 		return
 	}
-	msg, err := killPortProcess(args[0])
+	msg, err := ports.KillPortProcess(args[0])
 	if err != nil {
 		t.write("\r\n\x1b[31mkill: " + err.Error() + "\x1b[0m")
 	} else {
@@ -571,7 +576,7 @@ func (t *Terminal) builtinExplorer() {
 func (t *Terminal) builtinPack(args []string) {
 	dryrun := len(args) > 0 && args[0] == "--dryrun"
 
-	entries, err := collectPackEntries(t.cwd)
+	entries, err := pack.CollectEntries(t.cwd)
 	if err != nil {
 		t.write("\r\n\x1b[31mpack: " + err.Error() + "\x1b[0m")
 		t.write(t.prompt())
@@ -584,9 +589,9 @@ func (t *Terminal) builtinPack(args []string) {
 		sb.WriteString(fmt.Sprintf("\r\n\x1b[38;5;75mPack preview — %d files\x1b[0m\r\n\r\n", len(entries)))
 		for _, e := range entries {
 			total += e.Size
-			sb.WriteString(fmt.Sprintf("  \x1b[38;5;246m%s\x1b[0m  %s\r\n", formatBytes(e.Size), e.RelPath))
+			sb.WriteString(fmt.Sprintf("  \x1b[38;5;246m%s\x1b[0m  %s\r\n", pack.FormatBytes(e.Size), e.RelPath))
 		}
-		sb.WriteString(fmt.Sprintf("\r\n  \x1b[38;5;75mTotal: %s\x1b[0m\r\n", formatBytes(total)))
+		sb.WriteString(fmt.Sprintf("\r\n  \x1b[38;5;75mTotal: %s\x1b[0m\r\n", pack.FormatBytes(total)))
 		if !dryrun {
 			sb.WriteString("\r\n\x1b[38;5;246mno files to pack\x1b[0m")
 		}
@@ -600,11 +605,11 @@ func (t *Terminal) builtinPack(args []string) {
 	zipPath := filepath.Join(filepath.Dir(t.cwd), zipName)
 
 	t.write(fmt.Sprintf("\r\n\x1b[38;5;246mpacking %d files into %s…\x1b[0m", len(entries), zipName))
-	if err := createZip(t.cwd, zipPath, entries); err != nil {
+	if err := pack.CreateZip(t.cwd, zipPath, entries); err != nil {
 		t.write("\r\n\x1b[31mpack: " + err.Error() + "\x1b[0m")
 	} else {
 		if info, err2 := os.Stat(zipPath); err2 == nil {
-			t.write(fmt.Sprintf("\r\n\x1b[38;5;75mcreated %s (%s)\x1b[0m", zipPath, formatBytes(info.Size())))
+			t.write(fmt.Sprintf("\r\n\x1b[38;5;75mcreated %s (%s)\x1b[0m", zipPath, pack.FormatBytes(info.Size())))
 		} else {
 			t.write(fmt.Sprintf("\r\n\x1b[38;5;75mcreated %s\x1b[0m", zipPath))
 		}
@@ -624,12 +629,10 @@ func (t *Terminal) builtinOpen(args []string) {
 	}
 	path = filepath.Clean(path)
 
-	// Database file → DB viewer
-	if isDBFile(path) {
+	if database.IsDBFile(path) {
 		t.write("\r\n\x1b[38;5;246mopening database " + filepath.Base(path) + "\x1b[0m")
 		wailsruntime.EventsEmit(t.ctx, "app:open-database", map[string]string{
-			"path":       path,
-			"terminalId": t.id,
+			"path": path, "terminalId": t.id,
 		})
 		t.write(t.prompt())
 		return
@@ -642,14 +645,50 @@ func (t *Terminal) builtinOpen(args []string) {
 		return
 	}
 
-	lang := detectLanguage(path)
 	t.write("\r\n\x1b[38;5;246mopening " + filepath.Base(path) + "\x1b[0m")
 	wailsruntime.EventsEmit(t.ctx, "app:open-file", map[string]string{
 		"path":       path,
 		"content":    string(content),
-		"language":   lang,
+		"language":   detectLanguage(path),
 		"terminalId": t.id,
 	})
+	t.write(t.prompt())
+}
+
+func (t *Terminal) builtinProblems() {
+	const (
+		probDim   = "\x1b[38;5;246m"
+		probReset = "\x1b[0m"
+	)
+	t.write("\r\n" + probDim + "  scanning…" + probReset)
+
+	result := problems.Scan(t.cwd)
+
+	t.write("\r\x1b[2K")
+
+	if len(result.Sources) == 0 {
+		t.write("\r\n" + probDim +
+			"  No source files found.\r\n" +
+			"  Scans: Go (.go) · TypeScript/JS (.ts .tsx .js .jsx)\r\n" + probReset)
+		t.write(t.prompt())
+		return
+	}
+
+	wailsruntime.EventsEmit(t.ctx, "app:open-problems", map[string]interface{}{
+		"cwd":        result.Cwd,
+		"sources":    result.Sources,
+		"items":      result.Items,
+		"terminalId": t.id,
+	})
+
+	label := fmt.Sprintf("%d issue", len(result.Items))
+	if len(result.Items) != 1 {
+		label += "s"
+	}
+	if len(result.Items) == 0 {
+		label = "no issues"
+	}
+	t.write("\r\n" + probDim + "  opened problems tab — " + label + probReset)
 	t.write(t.prompt())
 }
 
@@ -736,7 +775,7 @@ func isPreviewURL(s string) bool {
 // ─── external command execution ───────────────────────────────────────────────
 
 func (t *Terminal) execExternal(parts []string) {
-	cmd := ps.BuildShellCmd(parts)
+	cmd := ps.BuildShellCmdWithPref(parts, getGlobalConfig().PreferredShell)
 	cmd.Dir = t.cwd
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",

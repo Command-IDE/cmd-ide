@@ -3,9 +3,18 @@ module terminal-ide
 go 1.25.0
 
 require (
+	github.com/Command-IDE/powershell v0.0.0-00010101000000-000000000000
+	github.com/Command-IDE/terminal v0.0.0-00010101000000-000000000000
 	github.com/wailsapp/wails/v2 v2.12.0
 	golang.org/x/sys v0.42.0
 	modernc.org/sqlite v1.50.0
+)
+
+replace (
+	github.com/Command-IDE/bash => ./bash
+	github.com/Command-IDE/powershell => ./powershell
+	github.com/Command-IDE/terminal => ./terminal
+	github.com/Command-IDE/zsh => ./zsh
 )
 
 require (
