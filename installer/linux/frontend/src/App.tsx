@@ -112,12 +112,14 @@ export default function App() {
 
       </div>
 
-      <div className="progress-track">
-        <div
-          className="progress-fill"
-          style={{ width: `${progress}%`, transition: progress === 0 ? 'none' : 'width 0.25s ease' }}
-        />
-      </div>
+      {(phase === 'installing' || phase === 'done') && (
+        <div className="progress-track">
+          <div
+            className="progress-fill"
+            style={{ width: `${Math.max(0, Math.min(progress, 100))}%`, transition: progress === 0 ? 'none' : 'width 0.25s ease' }}
+          />
+        </div>
+      )}
 
     </div>
   )
