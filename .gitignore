@@ -21,3 +21,6 @@ node_modules
 /installer/.cache
 /docs/dist
 /.claude
+.claude/
+.claude/settings.local.json
+settings.local.json

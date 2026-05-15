@@ -1,5 +1,0 @@
-3 Builds
-
-CMD IDE Raw (No plugin support, low-bloat, focused)
-CMD IDE (Current Builds)
-CMD IDE CLI (Adds UI and CLI commands to normal consoles and terminals, to allow for IDE like support with popup UI)
